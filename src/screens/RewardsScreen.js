@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Animated, Dimensions, Image
+    Animated, Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -282,6 +282,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.glassStroke,
         minHeight: 200,
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
     },
     passEmoji: {
         fontSize: 28,
@@ -306,12 +308,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 16,
         marginBottom: 14,
+        flexGrow: 1,
     },
     passBtn: {
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: SIZES.radiusMd,
-        marginTop: 'auto',
         width: '100%',
         alignItems: 'center',
     },

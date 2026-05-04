@@ -1,20 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 
 const AuthContext = createContext();
 
 // Configure your API URL here:
-// - For Vercel deployment, use your Vercel URL
-// - For local development, comment out the production URL and uncomment the local one
-const getApiUrl = () => {
-    // Production (Vercel deployment):
-    return 'https://ecoshare-eight.vercel.app/api';
+// Production (Vercel deployment):
+const PRODUCTION_URL = 'https://ecoshare-eight.vercel.app/api';
 
-    // Local development (uncomment below, comment out the production line above):
-    // if (Platform.OS === 'android') {
-    //     return 'http://10.0.2.2:5000/api';
-    // }
+// Local development - uncomment and set your machine's local IP to use the local backend:
+// const LOCAL_IP = '10.75.86.148';
+// const LOCAL_URL = `http://${LOCAL_IP}:5000/api`;
+
+const getApiUrl = () => {
+    // Always use the production Vercel API
+    return PRODUCTION_URL;
+
+    // --- Uncomment below for local development ---
+    // if (Platform.OS === 'android') return `http://${LOCAL_IP}:5000/api`;
+    // if (Platform.OS === 'ios') return `http://${LOCAL_IP}:5000/api`;
     // return 'http://localhost:5000/api';
 };
 

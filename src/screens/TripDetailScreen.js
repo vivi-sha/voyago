@@ -103,12 +103,6 @@ export default function TripDetailScreen({ route, navigation }) {
         </View>
     );
 
-    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const myExpenses = expenses.filter(e => String(e.payerId) === String(userId));
-    const myPaid = myExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const myShare = totalExpenses / (members.length || 1);
-    const balance = myPaid - myShare;
-
     if (loading) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -116,6 +110,28 @@ export default function TripDetailScreen({ route, navigation }) {
             </View>
         );
     }
+
+    // Guard: trip fetch failed
+    if (!trip) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+                <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
+                <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Trip Not Found</Text>
+                <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24 }}>
+                    Could not load trip data. Please check your connection and try again.
+                </Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}>
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const myExpenses = expenses.filter(e => String(e.payerId) === String(userId));
+    const myPaid = myExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const myShare = totalExpenses / (members.length || 1);
+    const balance = myPaid - myShare;
 
     return (
         <View style={styles.container}>

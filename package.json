@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "backend": "node backend/index.js"
+    "backend": "node backend/index.js",
+    "backend:dev": "nodemon backend/index.js"
   },
   "dependencies": {
     "@babel/core": "^7.26.0",
@@ -21,6 +22,7 @@
     "@react-navigation/native-stack": "^7.14.6",
     "babel-preset-expo": "~55.0.8",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "expo": "~55.0.15",
     "expo-auth-session": "~55.0.14",
     "expo-crypto": "~55.0.14",
