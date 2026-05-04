@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator
+    View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator, Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
+
+const { width } = Dimensions.get('window');
 
 export default function ImpactScreen() {
     const { user, refreshUser } = useAuth();
