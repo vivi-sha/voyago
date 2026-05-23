@@ -72,6 +72,8 @@ export const AuthProvider = ({ children }) => {
             // Don't block the user from using the app if backend is down
             // Set a minimal user object from Clerk data
             setUser({
+                _id: cUser.id,
+                clerkId: cUser.id,
                 name: cUser.fullName || cUser.username || 'User',
                 email: cUser.primaryEmailAddress?.emailAddress,
                 photoUrl: cUser.imageUrl,

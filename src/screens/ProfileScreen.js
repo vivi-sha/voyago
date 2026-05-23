@@ -6,8 +6,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreen({ navigation }) {
+    const insets = useSafeAreaInsets();
     const { user, clerkUser, logout, refreshUser } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -40,7 +42,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                 {/* Profile Header */}
-                <LinearGradient colors={['#0F172A', '#1a2942']} style={styles.header}>
+                <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
                     <View style={styles.headerTop}>
                         <Text style={styles.headerTitle}>Profile</Text>
                         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
@@ -169,7 +171,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingBottom: 30,
         paddingHorizontal: 20,
     },

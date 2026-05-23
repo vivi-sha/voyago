@@ -6,10 +6,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 export default function ImpactScreen() {
+    const insets = useSafeAreaInsets();
     const { user, refreshUser } = useAuth();
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ export default function ImpactScreen() {
     return (
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                <LinearGradient colors={['#0F172A', '#1a2942']} style={styles.header}>
+                <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
                     <Text style={styles.headerTitle}>Your Sustainability Impact 🌍</Text>
                     <Text style={styles.headerSubtitle}>Track your eco-friendly journey</Text>
                 </LinearGradient>
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingBottom: 20,
         paddingHorizontal: 20,
     },

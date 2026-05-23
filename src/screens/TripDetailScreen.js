@@ -7,10 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TripDetailScreen({ route, navigation }) {
+    const insets = useSafeAreaInsets();
     const { tripId } = route.params;
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [trip, setTrip] = useState(null);
     const [expenses, setExpenses] = useState([]);
     const [members, setMembers] = useState([]);
@@ -80,6 +82,7 @@ export default function TripDetailScreen({ route, navigation }) {
                 setExpenseAmount('');
                 setIsEcoFriendly(false);
                 fetchTripData();
+                refreshUser();
             }
         } catch (e) {
             Alert.alert('Error', 'Failed to add expense');
@@ -137,7 +140,7 @@ export default function TripDetailScreen({ route, navigation }) {
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                 {/* Header */}
-                <LinearGradient colors={['#0F172A', '#1a2942']} style={styles.header}>
+                <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
                     </TouchableOpacity>
@@ -251,13 +254,13 @@ export default function TripDetailScreen({ route, navigation }) {
                         {members.length > 1 ? (
                             <>
                                 <Text style={styles.settlementText}>
-                                    Per person share: ₹{(totalExpenses / members.length).toFixed(2)}
+                                    Per person share: ₹{(totalExpenses / (members.length || 1)).toFixed(2)}
                                 </Text>
                                 {members.map((m, i) => {
                                     const paid = expenses
                                         .filter(e => String(e.payerId) === String(m._id || m.id))
                                         .reduce((s, e) => s + e.amount, 0);
-                                    const share = totalExpenses / members.length;
+                                    const share = totalExpenses / (members.length || 1);
                                     const diff = paid - share;
                                     return (
                                         <View key={i} style={styles.settlementRow}>
@@ -348,7 +351,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingBottom: 24,
         paddingHorizontal: 20,
     },

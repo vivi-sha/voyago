@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -56,6 +57,7 @@ const PASSES = [
 ];
 
 export default function RewardsScreen({ navigation }) {
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -68,7 +70,7 @@ export default function RewardsScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                <LinearGradient colors={['#0F172A', '#1a2942']} style={styles.header}>
+                <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
                     </TouchableOpacity>
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingBottom: 30,
         paddingHorizontal: 20,
         alignItems: 'center',

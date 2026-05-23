@@ -53,7 +53,12 @@ const tripSchema = new mongoose.Schema({
     destination: String,
     creatorId: mongoose.Schema.Types.ObjectId,
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    shareCode: { type: String, default: () => shortid.generate() },
+    shareCode: { type: String, default: () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        return code;
+    }},
     date: { type: Date, default: Date.now },
 }, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 

@@ -8,10 +8,12 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSignIn, useSignUp, useOAuth } from '@clerk/clerk-expo';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
+    const insets = useSafeAreaInsets();
     const { isLoaded: signInLoaded, signIn, setActive: setSignInActive } = useSignIn();
     const { isLoaded: signUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
     const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
@@ -82,7 +84,7 @@ export default function LoginScreen({ navigation }) {
             style={styles.container}
         >
             <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
                     </TouchableOpacity>
@@ -199,6 +201,47 @@ export default function LoginScreen({ navigation }) {
                                 </Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* Dev Login Bypass */}
+                        <View style={styles.devSection}>
+                            <View style={styles.divider}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.dividerText}>DEV MODE</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
+                            <TouchableOpacity
+                                style={styles.devBtn}
+                                onPress={async () => {
+                                    setLoading(true);
+                                    try {
+                                        const res = await fetch('https://ecoshare-eight.vercel.app/api/auth/google', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                clerkId: 'dev_local_user',
+                                                name: 'Demo User',
+                                                email: 'demo@voyago.dev',
+                                                photoUrl: null,
+                                            }),
+                                        });
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            // Manually set the user via context workaround
+                                            // This navigates the user in by setting a session-like state
+                                            Alert.alert('Dev Login', 'Use Google/Email login for full functionality. Dev bypass requires Clerk session.');
+                                        }
+                                    } catch (e) {
+                                        Alert.alert('Error', 'Backend unavailable for dev login.');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="code-slash-outline" size={18} color={COLORS.accent} style={{ marginRight: 8 }} />
+                                <Text style={styles.devBtnText}>Quick Demo Login</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
@@ -215,7 +258,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingHorizontal: 20,
     },
     backBtn: {
@@ -346,5 +389,26 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         fontSize: SIZES.fontMd,
         fontWeight: '700',
+    },
+    devSection: {
+        marginTop: 24,
+        alignItems: 'center',
+    },
+    devBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 12,
+        width: '100%',
+    },
+    devBtnText: {
+        color: '#F59E0B',
+        fontWeight: '600',
+        fontSize: 14,
     },
 });

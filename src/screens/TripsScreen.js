@@ -7,8 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TripsScreen({ navigation }) {
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function TripsScreen({ navigation }) {
     return (
         <View style={styles.container}>
             {/* Header */}
-            <LinearGradient colors={['#0F172A', '#1a2942']} style={styles.header}>
+            <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
                 <Text style={styles.headerTitle}>My Trips ✈️</Text>
                 <Text style={styles.headerSubtitle}>Plan your next adventure</Text>
             </LinearGradient>
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        paddingTop: 50,
+        paddingTop: 16,
         paddingBottom: 20,
         paddingHorizontal: 20,
     },

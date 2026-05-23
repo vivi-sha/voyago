@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -40,6 +41,7 @@ const STATS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+    const insets = useSafeAreaInsets();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -68,7 +70,7 @@ export default function HomeScreen({ navigation }) {
             <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                 {/* Hero Section */}
-                <LinearGradient colors={['#0F172A', '#1a2942', '#0F172A']} style={styles.heroSection}>
+                <LinearGradient colors={['#0F172A', '#1a2942', '#0F172A']} style={[styles.heroSection, { paddingTop: insets.top + 20 }]}>
                     <View style={styles.heroGlowOrb} />
                     <View style={styles.heroGlowOrb2} />
 
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     heroSection: {
-        paddingTop: 60,
+        paddingTop: 20,
         paddingBottom: 40,
         paddingHorizontal: 24,
         overflow: 'hidden',
