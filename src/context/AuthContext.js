@@ -25,9 +25,19 @@ const API_URL = getApiUrl();
 
 export const AuthProvider = ({ children }) => {
     const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
-    const { signOut } = useClerkAuth();
+    const { signOut, getToken } = useClerkAuth();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const fetchWithAuth = async (url, options = {}) => {
+        const token = await getToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        };
+        return fetch(url, { ...options, headers });
+    };
 
     useEffect(() => {
         if (clerkLoaded) {
@@ -44,9 +54,8 @@ export const AuthProvider = ({ children }) => {
     const syncUserWithBackend = async (cUser) => {
         try {
             console.log(`Syncing with ${API_URL}/auth/google...`);
-            const res = await fetch(`${API_URL}/auth/google`, {
+            const res = await fetchWithAuth(`${API_URL}/auth/google`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     clerkId: cUser.id,
                     name: cUser.fullName || cUser.username || cUser.primaryEmailAddress?.emailAddress?.split('@')[0] || 'User',
@@ -98,7 +107,7 @@ export const AuthProvider = ({ children }) => {
         if (!user?._id && !user?.id) return;
         try {
             const userId = user._id || user.id;
-            const res = await fetch(`${API_URL}/users/${userId}`);
+            const res = await fetchWithAuth(`${API_URL}/users/${userId}`);
             if (res.ok) {
                 const updatedUser = await res.json();
                 setUser(updatedUser);
@@ -113,6 +122,7 @@ export const AuthProvider = ({ children }) => {
             user,
             logout,
             refreshUser,
+            fetchWithAuth,
             loading: !clerkLoaded || loading,
             API_URL,
             clerkUser

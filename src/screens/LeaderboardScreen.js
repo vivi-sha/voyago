@@ -5,12 +5,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { useAuth, API_URL } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerCelebration } from '../utils/feedback';
 
 export default function LeaderboardScreen() {
     const insets = useSafeAreaInsets();
-    const { user } = useAuth();
+    const { user, API_URL, fetchWithAuth } = useAuth();
     const userId = user?._id || user?.id;
     const [leaders, setLeaders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,13 +24,20 @@ export default function LeaderboardScreen() {
 
     const fetchLeaderboard = async () => {
         try {
-            const res = await fetch(`${API_URL}/users`);
+            setLoading(true);
+            const res = await fetchWithAuth(`${API_URL}/users`);
             if (res.ok) {
                 const data = await res.json();
                 const sorted = data
                     .sort((a, b) => (b.ecoPoints || 0) - (a.ecoPoints || 0))
                     .slice(0, 20);
                 setLeaders(sorted);
+                
+                // Trigger celebration if current user is in top 3
+                const userIndex = sorted.findIndex(l => String(l._id || l.id) === String(userId));
+                if (userIndex >= 0 && userIndex <= 2) {
+                    triggerCelebration();
+                }
             }
         } catch (e) {
             console.error('Failed to fetch leaderboard:', e);

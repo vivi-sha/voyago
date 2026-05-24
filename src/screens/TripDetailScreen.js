@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, ActivityIndicator, Modal, Share
+    TextInput, Alert, ActivityIndicator, Modal, Share, Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { parseReceipt } from '../utils/receiptParser';
+import EcoMap from '../components/EcoMap';
+import { triggerSuccess, playEcoChime, triggerLight } from '../utils/feedback';
 
 export default function TripDetailScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
-    const { tripId } = route.params;
-    const { user, refreshUser } = useAuth();
-    const [trip, setTrip] = useState(null);
+    const { trip: initialTrip } = route.params;
+    const { user, API_URL, fetchWithAuth, refreshUser } = useAuth();
+    const [trip, setTrip] = useState(initialTrip);
     const [expenses, setExpenses] = useState([]);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,6 +25,7 @@ export default function TripDetailScreen({ route, navigation }) {
     const [expenseDesc, setExpenseDesc] = useState('');
     const [expenseAmount, setExpenseAmount] = useState('');
     const [isEcoFriendly, setIsEcoFriendly] = useState(false);
+    const [scanning, setScanning] = useState(false);
 
     useEffect(() => {
         fetchTripData();
@@ -29,8 +34,8 @@ export default function TripDetailScreen({ route, navigation }) {
     const fetchTripData = async () => {
         try {
             const [tripRes, expRes] = await Promise.all([
-                fetch(`${API_URL}/trips/${tripId}`),
-                fetch(`${API_URL}/expenses?tripId=${tripId}`),
+                fetchWithAuth(`${API_URL}/trips/${initialTrip._id || initialTrip.id}`),
+                fetchWithAuth(`${API_URL}/expenses?tripId=${initialTrip._id || initialTrip.id}`),
             ]);
 
             if (tripRes.ok) {
@@ -40,7 +45,7 @@ export default function TripDetailScreen({ route, navigation }) {
                 // Fetch member details
                 if (tripData.members?.length) {
                     const memberPromises = tripData.members.map(id =>
-                        fetch(`${API_URL}/users/${id}`).then(r => r.ok ? r.json() : null)
+                        fetchWithAuth(`${API_URL}/users/${id}`).then(r => r.ok ? r.json() : null)
                     );
                     const memberData = await Promise.all(memberPromises);
                     setMembers(memberData.filter(Boolean));
@@ -58,25 +63,59 @@ export default function TripDetailScreen({ route, navigation }) {
         }
     };
 
+    const handleScanReceipt = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Sorry, we need camera permissions to scan receipts.');
+            return;
+        }
+
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [3, 4],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setScanning(true);
+            try {
+                const parsed = await parseReceipt(result.assets[0].uri);
+                setExpenseDesc(`${parsed.merchant} (Scanned)`);
+                setExpenseAmount(String(parsed.amount));
+                setIsEcoFriendly(parsed.isEcoFriendly);
+            } catch (e) {
+                Alert.alert('Scan Failed', 'Could not read the receipt.');
+            } finally {
+                setScanning(false);
+            }
+        }
+    };
+
     const addExpense = async () => {
         if (!expenseDesc.trim() || !expenseAmount.trim()) {
             Alert.alert('Error', 'Please fill in all fields');
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/expenses`, {
+            const res = await fetchWithAuth(`${API_URL}/expenses`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    tripId,
+                    tripId: trip._id || trip.id,
                     description: expenseDesc,
-                    amount: parseFloat(expenseAmount),
+                    amount: Number(expenseAmount),
                     payerId: user._id || user.id,
                     splitWith: trip.members,
                     isEcoFriendly,
                 }),
             });
             if (res.ok) {
+                if (isEcoFriendly) {
+                    triggerSuccess();
+                    playEcoChime();
+                } else {
+                    triggerLight();
+                }
                 setShowExpenseModal(false);
                 setExpenseDesc('');
                 setExpenseAmount('');
@@ -198,6 +237,12 @@ export default function TripDetailScreen({ route, navigation }) {
                     </ScrollView>
                 </View>
 
+                {/* Eco-Hotspot Map */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Eco-Hotspots 🗺️</Text>
+                    <EcoMap destination={trip.destination} />
+                </View>
+
                 {/* Expenses */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -297,6 +342,23 @@ export default function TripDetailScreen({ route, navigation }) {
                         </View>
 
                         <View style={styles.modalForm}>
+                            <TouchableOpacity style={styles.scanBtn} onPress={handleScanReceipt} activeOpacity={0.8}>
+                                {scanning ? (
+                                    <ActivityIndicator color={COLORS.primary} size="small" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="camera" size={20} color={COLORS.primary} />
+                                        <Text style={styles.scanBtnText}>📸 Scan Receipt</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+
+                            <View style={styles.divider}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.dividerText}>OR MANUAL ENTRY</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
+
                             <View style={styles.inputGroup}>
                                 <Ionicons name="receipt-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
                                 <TextInput
@@ -617,6 +679,38 @@ const styles = StyleSheet.create({
         height: 50,
         color: COLORS.text,
         fontSize: SIZES.fontMd,
+    },
+    scanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(16,185,129,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(16,185,129,0.3)',
+        borderRadius: SIZES.radiusMd,
+        paddingVertical: 12,
+    },
+    scanBtnText: {
+        color: COLORS.primary,
+        fontWeight: '700',
+        fontSize: SIZES.fontMd,
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 4,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: COLORS.border,
+    },
+    dividerText: {
+        color: COLORS.textMuted,
+        paddingHorizontal: 12,
+        fontSize: 10,
+        fontWeight: '700',
     },
     ecoToggle: {
         flexDirection: 'row',

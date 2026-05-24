@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerCelebration } from '../utils/feedback';
+import DailyChallengeCard from '../components/DailyChallengeCard';
 
 export default function ProfileScreen({ navigation }) {
     const insets = useSafeAreaInsets();
@@ -26,6 +28,17 @@ export default function ProfileScreen({ navigation }) {
     const donatedPoints = user?.donatedPoints || 0;
     const goalPoints = 500;
     const progress = Math.min(ecoPoints / goalPoints, 1);
+    
+    const goalReachedRef = useRef(false);
+
+    useEffect(() => {
+        if (ecoPoints >= goalPoints && !goalReachedRef.current) {
+            triggerCelebration();
+            goalReachedRef.current = true;
+        } else if (ecoPoints < goalPoints) {
+            goalReachedRef.current = false;
+        }
+    }, [ecoPoints]);
 
     const handleLogout = () => {
         logout();
@@ -100,6 +113,9 @@ export default function ProfileScreen({ navigation }) {
                         </LinearGradient>
                     </View>
                 </View>
+
+                {/* Daily Challenge Card */}
+                <DailyChallengeCard user={user} refreshUser={refreshUser} />
 
                 {/* Earth Impact */}
                 <View style={styles.section}>

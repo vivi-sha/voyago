@@ -6,12 +6,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { useAuth, API_URL } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TripsScreen({ navigation }) {
     const insets = useSafeAreaInsets();
-    const { user } = useAuth();
+    const { user, API_URL, fetchWithAuth } = useAuth();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -36,7 +36,7 @@ export default function TripsScreen({ navigation }) {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/trips?userId=${userId}`);
+            const res = await fetchWithAuth(`${API_URL}/trips?userId=${userId}`);
             if (res.ok) {
                 const data = await res.json();
                 setTrips(data);
@@ -56,13 +56,14 @@ export default function TripsScreen({ navigation }) {
         }
         setCreating(true);
         try {
-            const res = await fetch(`${API_URL}/trips`, {
+            const userId = user?._id || user?.id;
+            const res = await fetchWithAuth(`${API_URL}/trips`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: newTripName,
                     destination: newTripDest,
-                    creatorId: user._id || user.id,
+                    creatorId: userId,
+                    members: [userId],
                 }),
             });
             if (res.ok) {
@@ -84,9 +85,8 @@ export default function TripsScreen({ navigation }) {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/trips/join`, {
+            const res = await fetchWithAuth(`${API_URL}/trips/join`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ shareCode: joinCode, userId: user._id || user.id }),
             });
             if (res.ok) {

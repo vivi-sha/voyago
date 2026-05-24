@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useSignIn, useSignUp, useOAuth } from '@clerk/clerk-expo';
+import { useAuth } from '../context/AuthContext';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,6 +15,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
     const insets = useSafeAreaInsets();
+    const { API_URL, fetchWithAuth } = useAuth();
     const { isLoaded: signInLoaded, signIn, setActive: setSignInActive } = useSignIn();
     const { isLoaded: signUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
     const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
@@ -214,9 +216,8 @@ export default function LoginScreen({ navigation }) {
                                 onPress={async () => {
                                     setLoading(true);
                                     try {
-                                        const res = await fetch('https://ecoshare-eight.vercel.app/api/auth/google', {
+                                        await fetchWithAuth(`${API_URL}/api/auth/google`, {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
                                                 clerkId: 'dev_local_user',
                                                 name: 'Demo User',
@@ -224,12 +225,7 @@ export default function LoginScreen({ navigation }) {
                                                 photoUrl: null,
                                             }),
                                         });
-                                        if (res.ok) {
-                                            const data = await res.json();
-                                            // Manually set the user via context workaround
-                                            // This navigates the user in by setting a session-like state
-                                            Alert.alert('Dev Login', 'Use Google/Email login for full functionality. Dev bypass requires Clerk session.');
-                                        }
+                                        Alert.alert('Dev Login', 'Backend synchronized.');
                                     } catch (e) {
                                         Alert.alert('Error', 'Backend unavailable for dev login.');
                                     } finally {

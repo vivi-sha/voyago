@@ -10,9 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-export default function ImpactScreen() {
+export default function ImpactScreen({ navigation }) {
     const insets = useSafeAreaInsets();
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, API_URL, fetchWithAuth } = useAuth();
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -47,11 +47,12 @@ export default function ImpactScreen() {
     const fetchActivities = async () => {
         const userId = user?._id || user?.id;
         if (!userId) {
-            setLoading(false);
+            setLoading(true);
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/expenses?payerId=${userId}`);
+            const userId = user?._id || user?.id;
+            const res = await fetchWithAuth(`${API_URL}/expenses?payerId=${userId}`);
             if (res.ok) {
                 const data = await res.json();
                 const ecoActivities = data

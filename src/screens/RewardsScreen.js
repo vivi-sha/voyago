@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerCelebration, playEcoChime } from '../utils/feedback';
 
 const { width } = Dimensions.get('window');
 
@@ -67,6 +68,13 @@ export default function RewardsScreen({ navigation }) {
 
     const ecoPoints = user?.ecoPoints || 0;
 
+    const handleDonate = (ngo) => {
+        if (ecoPoints >= ngo.points) {
+            triggerCelebration();
+            playEcoChime();
+        }
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
@@ -105,7 +113,10 @@ export default function RewardsScreen({ navigation }) {
                                     <Text style={styles.rewardDesc}>{ngo.desc}</Text>
                                     <View style={styles.priceRow}>
                                         <Text style={[styles.priceTag, { color: ngo.color }]}>{ngo.points} Pts</Text>
-                                        <TouchableOpacity style={[styles.redeemBtn, { backgroundColor: ecoPoints >= ngo.points ? COLORS.primary : COLORS.border }]}>
+                                        <TouchableOpacity 
+                                            style={[styles.redeemBtn, { backgroundColor: ecoPoints >= ngo.points ? COLORS.primary : COLORS.border }]}
+                                            onPress={() => handleDonate(ngo)}
+                                        >
                                             <Text style={styles.redeemBtnText}>Donate</Text>
                                         </TouchableOpacity>
                                     </View>

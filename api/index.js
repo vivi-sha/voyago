@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const shortid = require('shortid');
+const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
 
 const app = express();
 app.use(cors());
@@ -84,6 +85,17 @@ app.get('/api', (req, res) => {
     res.json({ message: 'Voyago API is running!' });
 });
 
+// Protect all /api routes
+app.use('/api', ClerkExpressRequireAuth({}));
+
+// Custom error handler for unauthenticated requests
+app.use((err, req, res, next) => {
+    if (err.message === 'Unauthenticated' || err.name === 'UnauthorizedError') {
+        return res.status(401).json({ error: 'Unauthenticated' });
+    }
+    next(err);
+});
+
 // Sync User with Backend
 app.post('/api/auth/google', async (req, res) => {
     await connectDB();
@@ -133,11 +145,30 @@ app.get('/api/users', async (req, res) => {
         const users = await User.find().sort({ ecoPoints: -1 }).limit(20);
         res.json(users);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get User Trips
+// Award points to user
+app.post('/api/users/:id/add-points', async (req, res) => {
+    await connectDB();
+    try {
+        const { points, reason } = req.body;
+        const user = await User.findOneAndUpdate(
+            { $or: [{ clerkId: req.params.id }, { _id: req.params.id }] },
+            { $inc: { ecoPoints: points || 0 } },
+            { new: true }
+        );
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Trips Routes
 app.get('/api/trips', async (req, res) => {
     await connectDB();
     try {
