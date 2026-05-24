@@ -3,7 +3,7 @@ import {
     View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator, Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,12 +18,31 @@ export default function ImpactScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const ecoPoints = user?.ecoPoints || 0;
+    const treesCount = Math.floor(ecoPoints / 100);
+    
+    // Create up to 100 animated values for our trees to spring in
+    const treeAnims = useRef([...Array(100)].map(() => new Animated.Value(0))).current;
 
     useEffect(() => {
         refreshUser();
         fetchActivities();
         Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     }, []);
+
+    // Animate trees whenever the count changes
+    useEffect(() => {
+        if (treesCount > 0) {
+            const animations = treeAnims.slice(0, Math.min(treesCount, 100)).map(anim =>
+                Animated.spring(anim, {
+                    toValue: 1,
+                    friction: 5,
+                    tension: 40,
+                    useNativeDriver: true,
+                })
+            );
+            Animated.stagger(100, animations).start();
+        }
+    }, [treesCount]);
 
     const fetchActivities = async () => {
         const userId = user?._id || user?.id;
@@ -104,6 +123,40 @@ export default function ImpactScreen() {
                     ))}
                 </Animated.View>
                 )}
+
+                {/* Dynamic Virtual Forest */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Your Virtual Forest 🌳</Text>
+                    <View style={styles.forestContainer}>
+                        {treesCount === 0 ? (
+                            <View style={styles.emptyForest}>
+                                <View style={styles.seedContainer}>
+                                    <MaterialCommunityIcons name="seed-outline" size={40} color={COLORS.primary} />
+                                </View>
+                                <Text style={styles.emptyForestText}>Plant your first seed!</Text>
+                                <Text style={styles.emptyForestSubtext}>Earn 100 Eco Points to grow a tree.</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.forestGrid}>
+                                {[...Array(Math.min(treesCount, 100))].map((_, i) => (
+                                    <Animated.View 
+                                        key={i} 
+                                        style={[
+                                            styles.treeWrapper,
+                                            { transform: [{ scale: treeAnims[i] }] }
+                                        ]}
+                                    >
+                                        <MaterialCommunityIcons 
+                                            name={i % 3 === 0 ? "pine-tree" : "tree"} 
+                                            size={48} 
+                                            color={COLORS.primary} 
+                                        />
+                                    </Animated.View>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                </View>
 
                 {/* Monthly Impact Chart */}
                 <View style={styles.section}>
@@ -223,6 +276,48 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: COLORS.text,
         marginBottom: 16,
+    },
+    forestContainer: {
+        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        borderRadius: SIZES.radiusLg,
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.2)',
+        padding: 20,
+        minHeight: 140,
+        justifyContent: 'center',
+    },
+    emptyForest: {
+        alignItems: 'center',
+    },
+    seedContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    emptyForestText: {
+        fontSize: SIZES.fontLg,
+        fontWeight: '600',
+        color: COLORS.text,
+        marginBottom: 4,
+    },
+    emptyForestSubtext: {
+        fontSize: SIZES.fontSm,
+        color: COLORS.textSecondary,
+    },
+    forestGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        justifyContent: 'flex-start',
+    },
+    treeWrapper: {
+        padding: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     chartCard: {
         backgroundColor: COLORS.backgroundCard,
