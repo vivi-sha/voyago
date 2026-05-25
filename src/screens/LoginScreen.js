@@ -216,7 +216,7 @@ export default function LoginScreen({ navigation }) {
                                 onPress={async () => {
                                     setLoading(true);
                                     try {
-                                        await fetchWithAuth(`${API_URL}/api/auth/google`, {
+                                        await fetchWithAuth(`${API_URL}/auth/google`, {
                                             method: 'POST',
                                             body: JSON.stringify({
                                                 clerkId: 'dev_local_user',
