@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
+import * as Linking from 'expo-linking';
 
 // Context & Theme
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -97,7 +98,37 @@ function AuthenticatedTabs() {
 
 // Root Navigator
 function RootNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, fetchWithAuth, API_URL } = useAuth();
+  const url = Linking.useURL();
+
+  React.useEffect(() => {
+    if (url) {
+      const { path, queryParams } = Linking.parse(url);
+      if (path === 'join' && queryParams?.code) {
+        if (user) {
+          (async () => {
+            try {
+              const res = await fetchWithAuth(`${API_URL}/trips/join`, {
+                method: 'POST',
+                body: JSON.stringify({ shareCode: queryParams.code, userId: user._id || user.id })
+              });
+              if (res.ok) {
+                alert('Success! You have been added to the trip!');
+              } else {
+                const data = await res.json();
+                alert(`Could not join trip: ${data.error || 'Invalid code'}`);
+              }
+            } catch (e) {
+              console.error('Failed to handle join deep link', e);
+            }
+          })();
+        } else {
+          // Save for after login
+          SecureStore.setItemAsync('pendingJoinCode', queryParams.code).catch(console.error);
+        }
+      }
+    }
+  }, [url, user]);
 
   if (loading) {
     return (

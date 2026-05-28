@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -18,27 +18,7 @@ const generateHotspots = (lat, lng) => {
     ];
 };
 
-// Map styling for dark mode
-const mapCustomStyle = [
-    { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-    { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263c3f' }] },
-    { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6b9a76' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
-    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
-    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
-    { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
-    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-    { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-    { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] }
-];
+// Map styling removed since custom styles can cause blank maps without a Google Maps API key
 
 export default function EcoMap({ destination }) {
     const [region, setRegion] = useState(null);
@@ -52,10 +32,14 @@ export default function EcoMap({ destination }) {
     }, [destination]);
 
     const geocodeDestination = async () => {
+        // Default fallback (e.g., London) if geocoding fails
+        const fallbackRegion = { latitude: 51.5074, longitude: -0.1278 };
+        
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                setErrorMsg('Permission to access location was denied');
+                setRegion({ ...fallbackRegion, latitudeDelta: 0.04, longitudeDelta: 0.04 });
+                setHotspots(generateHotspots(fallbackRegion.latitude, fallbackRegion.longitude));
                 return;
             }
 
@@ -70,21 +54,14 @@ export default function EcoMap({ destination }) {
                 });
                 setHotspots(generateHotspots(latitude, longitude));
             } else {
-                setErrorMsg('Destination could not be located on the map.');
+                setRegion({ ...fallbackRegion, latitudeDelta: 0.04, longitudeDelta: 0.04 });
+                setHotspots(generateHotspots(fallbackRegion.latitude, fallbackRegion.longitude));
             }
         } catch (e) {
-            setErrorMsg('Error loading map data.');
+            setRegion({ ...fallbackRegion, latitudeDelta: 0.04, longitudeDelta: 0.04 });
+            setHotspots(generateHotspots(fallbackRegion.latitude, fallbackRegion.longitude));
         }
     };
-
-    if (errorMsg) {
-        return (
-            <View style={styles.errorContainer}>
-                <Ionicons name="map-outline" size={32} color={COLORS.textMuted} />
-                <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-        );
-    }
 
     if (!region) {
         return (
@@ -101,15 +78,13 @@ export default function EcoMap({ destination }) {
                 <MapView
                     style={styles.map}
                     initialRegion={region}
-                    customMapStyle={mapCustomStyle}
-                    provider={PROVIDER_GOOGLE}
                 >
                     {/* Main Destination Marker */}
                     <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }}>
                         <View style={styles.mainMarker}>
                             <Ionicons name="pin" size={24} color="#EF4444" />
                         </View>
-                        <Callout tooltip>
+                        <Callout>
                             <View style={styles.calloutBox}>
                                 <Text style={styles.calloutTitle}>{destination}</Text>
                                 <Text style={styles.calloutDesc}>Your Trip Destination</Text>
@@ -126,7 +101,7 @@ export default function EcoMap({ destination }) {
                             <View style={[styles.spotMarker, { backgroundColor: spot.color }]}>
                                 <Ionicons name={spot.icon} size={14} color="#fff" />
                             </View>
-                            <Callout tooltip>
+                            <Callout>
                                 <View style={styles.calloutBox}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                                         <Ionicons name={spot.icon} size={14} color={spot.color} />

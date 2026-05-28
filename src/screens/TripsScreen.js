@@ -189,7 +189,7 @@ export default function TripsScreen({ navigation }) {
                             <TouchableOpacity
                                 key={trip._id || trip.id || i}
                                 style={styles.tripCard}
-                                onPress={() => navigation.navigate('TripDetail', { tripId: trip._id || trip.id })}
+                                onPress={() => navigation.navigate('TripDetail', { trip: trip })}
                                 activeOpacity={0.7}
                             >
                                 <LinearGradient

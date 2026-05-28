@@ -263,4 +263,35 @@ app.post('/api/expenses', async (req, res) => {
     }
 });
 
+// Update Expense
+app.put('/api/expenses/:id', async (req, res) => {
+    await connectDB();
+    try {
+        const expense = await Expense.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!expense) return res.status(404).json({ error: 'Expense not found' });
+        res.json(expense);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Expense
+app.delete('/api/expenses/:id', async (req, res) => {
+    await connectDB();
+    try {
+        const expense = await Expense.findByIdAndDelete(req.params.id);
+        if (!expense) return res.status(404).json({ error: 'Expense not found' });
+        
+        // Remove eco points if it was eco-friendly
+        if (expense.isEcoFriendly) {
+            await User.findByIdAndUpdate(expense.payerId, {
+                $inc: { ecoPoints: -10 }
+            });
+        }
+        res.json({ message: 'Expense deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = app;

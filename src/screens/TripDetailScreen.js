@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseReceipt } from '../utils/receiptParser';
 import EcoMap from '../components/EcoMap';
 import { triggerSuccess, playEcoChime, triggerLight } from '../utils/feedback';
+import * as Linking from 'expo-linking';
 
 export default function TripDetailScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
@@ -25,6 +26,9 @@ export default function TripDetailScreen({ route, navigation }) {
     const [expenseDesc, setExpenseDesc] = useState('');
     const [expenseAmount, setExpenseAmount] = useState('');
     const [isEcoFriendly, setIsEcoFriendly] = useState(false);
+    const [expensePayerId, setExpensePayerId] = useState('');
+    const [expenseSplitWith, setExpenseSplitWith] = useState([]);
+    const [editingExpenseId, setEditingExpenseId] = useState(null);
     const [scanning, setScanning] = useState(false);
 
     useEffect(() => {
@@ -92,46 +96,103 @@ export default function TripDetailScreen({ route, navigation }) {
         }
     };
 
-    const addExpense = async () => {
-        if (!expenseDesc.trim() || !expenseAmount.trim()) {
-            Alert.alert('Error', 'Please fill in all fields');
+    const openAddExpense = () => {
+        setExpenseDesc('');
+        setExpenseAmount('');
+        setIsEcoFriendly(false);
+        setExpensePayerId(user._id || user.id);
+        setExpenseSplitWith(members.map(m => m._id || m.id));
+        setEditingExpenseId(null);
+        setShowExpenseModal(true);
+    };
+
+    const openEditExpense = (exp) => {
+        setExpenseDesc(exp.description);
+        setExpenseAmount(String(exp.amount));
+        setIsEcoFriendly(exp.isEcoFriendly);
+        setExpensePayerId(exp.payerId);
+        setExpenseSplitWith(exp.splitWith || members.map(m => m._id || m.id));
+        setEditingExpenseId(exp._id || exp.id);
+        setShowExpenseModal(true);
+    };
+
+    const deleteExpense = (expId) => {
+        Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const res = await fetchWithAuth(`${API_URL}/expenses/${expId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            fetchTripData();
+                            refreshUser();
+                        }
+                    } catch (e) {
+                        Alert.alert('Error', 'Failed to delete expense');
+                    }
+                }
+            }
+        ]);
+    };
+
+    const toggleSplitMember = (memberId) => {
+        setExpenseSplitWith(prev => 
+            prev.includes(memberId) 
+                ? prev.filter(id => id !== memberId)
+                : [...prev, memberId]
+        );
+    };
+
+    const saveExpense = async () => {
+        if (!expenseDesc.trim() || !expenseAmount.trim() || !expensePayerId || expenseSplitWith.length === 0) {
+            Alert.alert('Error', 'Please fill in all fields and select at least one person to split with.');
             return;
         }
+        
         try {
-            const res = await fetchWithAuth(`${API_URL}/expenses`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    tripId: trip._id || trip.id,
-                    description: expenseDesc,
-                    amount: Number(expenseAmount),
-                    payerId: user._id || user.id,
-                    splitWith: trip.members,
-                    isEcoFriendly,
-                }),
+            const body = {
+                tripId: trip._id || trip.id,
+                description: expenseDesc,
+                amount: Number(expenseAmount),
+                payerId: expensePayerId,
+                splitWith: expenseSplitWith,
+                isEcoFriendly,
+            };
+
+            const url = editingExpenseId ? `${API_URL}/expenses/${editingExpenseId}` : `${API_URL}/expenses`;
+            const method = editingExpenseId ? 'PUT' : 'POST';
+
+            const res = await fetchWithAuth(url, {
+                method,
+                body: JSON.stringify(body),
             });
+            
             if (res.ok) {
-                if (isEcoFriendly) {
+                if (isEcoFriendly && !editingExpenseId) {
                     triggerSuccess();
                     playEcoChime();
-                } else {
+                } else if (!editingExpenseId) {
                     triggerLight();
                 }
                 setShowExpenseModal(false);
-                setExpenseDesc('');
-                setExpenseAmount('');
-                setIsEcoFriendly(false);
                 fetchTripData();
                 refreshUser();
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                Alert.alert('Error', errorData.error || 'Failed to save expense');
             }
         } catch (e) {
-            Alert.alert('Error', 'Failed to add expense');
+            Alert.alert('Error', 'Failed to save expense');
         }
     };
 
     const shareTrip = async () => {
         try {
+            const link = Linking.createURL('join', { queryParams: { code: trip.shareCode } });
             await Share.share({
-                message: `Join my trip "${trip.name}" on Voyago! Use code: ${trip.shareCode}`,
+                message: `Join my trip "${trip.name}" on Voyago!\n\nClick this link to join automatically: ${link}`,
             });
         } catch (e) {
             console.error(e);
@@ -169,11 +230,60 @@ export default function TripDetailScreen({ route, navigation }) {
         );
     }
 
+    const calculateSettlement = () => {
+        let balances = {};
+        members.forEach(m => { balances[m._id || m.id] = 0; });
+        
+        expenses.forEach(exp => {
+            const amount = exp.amount || 0;
+            const payerId = exp.payerId;
+            const splitWith = exp.splitWith?.length > 0 ? exp.splitWith : members.map(m => m._id || m.id);
+            
+            if (balances[payerId] !== undefined) {
+                balances[payerId] += amount;
+            }
+            
+            const splitAmount = amount / splitWith.length;
+            splitWith.forEach(id => {
+                if (balances[id] !== undefined) {
+                    balances[id] -= splitAmount;
+                }
+            });
+        });
+
+        let debtors = [];
+        let creditors = [];
+        Object.keys(balances).forEach(id => {
+            if (balances[id] > 0.01) creditors.push({ id, amount: balances[id] });
+            else if (balances[id] < -0.01) debtors.push({ id, amount: -balances[id] });
+        });
+
+        let settlements = [];
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            let debtor = debtors[i];
+            let creditor = creditors[j];
+            let amount = Math.min(debtor.amount, creditor.amount);
+            
+            settlements.push({
+                from: debtor.id,
+                to: creditor.id,
+                amount: amount
+            });
+            
+            debtor.amount -= amount;
+            creditor.amount -= amount;
+            
+            if (debtor.amount < 0.01) i++;
+            if (creditor.amount < 0.01) j++;
+        }
+        
+        return { balances, settlements };
+    };
+
+    const { balances, settlements } = members.length > 0 ? calculateSettlement() : { balances: {}, settlements: [] };
+    const myBalance = balances[String(userId)] || 0;
     const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const myExpenses = expenses.filter(e => String(e.payerId) === String(userId));
-    const myPaid = myExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const myShare = totalExpenses / (members.length || 1);
-    const balance = myPaid - myShare;
 
     return (
         <View style={styles.container}>
@@ -203,8 +313,8 @@ export default function TripDetailScreen({ route, navigation }) {
                     </View>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Your Balance</Text>
-                        <Text style={[styles.statValue, { color: balance >= 0 ? COLORS.primary : COLORS.error }]}>
-                            {balance >= 0 ? '+' : '-'}₹{Math.abs(balance).toFixed(2)}
+                        <Text style={[styles.statValue, { color: myBalance >= 0 ? COLORS.primary : COLORS.error }]}>
+                            {myBalance >= 0 ? '+' : '-'}₹{Math.abs(myBalance).toFixed(2)}
                         </Text>
                     </View>
                     <View style={styles.statCard}>
@@ -248,7 +358,7 @@ export default function TripDetailScreen({ route, navigation }) {
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Expenses</Text>
                         <TouchableOpacity
-                            onPress={() => setShowExpenseModal(true)}
+                            onPress={openAddExpense}
                             style={styles.addExpBtn}
                             activeOpacity={0.8}
                         >
@@ -264,9 +374,10 @@ export default function TripDetailScreen({ route, navigation }) {
                         </View>
                     ) : (
                         expenses.map((exp, i) => {
+                            const expId = exp._id || exp.id || i;
                             const payer = members.find(m => String(m._id || m.id) === String(exp.payerId));
                             return (
-                                <View key={exp._id || exp.id || i} style={styles.expenseCard}>
+                                <View key={expId} style={styles.expenseCard}>
                                     <View style={styles.expenseIcon}>
                                         <Text style={{ fontSize: 20 }}>
                                             {exp.isEcoFriendly ? '🌱' : '🧾'}
@@ -277,6 +388,9 @@ export default function TripDetailScreen({ route, navigation }) {
                                         <Text style={styles.expensePayer}>
                                             Paid by {String(payer?._id || payer?.id) === String(userId) ? 'You' : payer?.name || 'Unknown'}
                                         </Text>
+                                        <Text style={styles.expenseSplitInfo}>
+                                            Split with {exp.splitWith?.length || members.length} people
+                                        </Text>
                                     </View>
                                     <View style={styles.expenseAmountBox}>
                                         <Text style={styles.expenseAmount}>₹{exp.amount}</Text>
@@ -285,6 +399,14 @@ export default function TripDetailScreen({ route, navigation }) {
                                                 <Text style={styles.ecoBadgeText}>Eco</Text>
                                             </View>
                                         )}
+                                    </View>
+                                    <View style={styles.expenseActions}>
+                                        <TouchableOpacity onPress={() => openEditExpense(exp)} style={styles.expActionBtn}>
+                                            <Ionicons name="pencil" size={16} color={COLORS.primary} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => deleteExpense(expId)} style={styles.expActionBtn}>
+                                            <Ionicons name="trash" size={16} color={COLORS.error} />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
                             );
@@ -296,33 +418,31 @@ export default function TripDetailScreen({ route, navigation }) {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>How to Settle Up 💸</Text>
                     <View style={styles.settlementCard}>
-                        {members.length > 1 ? (
-                            <>
-                                <Text style={styles.settlementText}>
-                                    Per person share: ₹{(totalExpenses / (members.length || 1)).toFixed(2)}
-                                </Text>
-                                {members.map((m, i) => {
-                                    const paid = expenses
-                                        .filter(e => String(e.payerId) === String(m._id || m.id))
-                                        .reduce((s, e) => s + e.amount, 0);
-                                    const share = totalExpenses / (members.length || 1);
-                                    const diff = paid - share;
-                                    return (
-                                        <View key={i} style={styles.settlementRow}>
+                        {settlements.length > 0 ? (
+                            settlements.map((s, i) => {
+                                const fromMember = members.find(m => String(m._id || m.id) === String(s.from));
+                                const toMember = members.find(m => String(m._id || m.id) === String(s.to));
+                                const fromName = String(s.from) === String(userId) ? 'You' : fromMember?.name;
+                                const toName = String(s.to) === String(userId) ? 'You' : toMember?.name;
+                                
+                                return (
+                                    <View key={i} style={styles.settlementRow}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Ionicons name="cash-outline" size={20} color={COLORS.primary} />
                                             <Text style={styles.settlementName}>
-                                                {String(m._id || m.id) === String(userId) ? 'You' : m.name}
-                                            </Text>
-                                            <Text style={[styles.settlementAmount, {
-                                                color: diff >= 0 ? COLORS.primary : COLORS.error
-                                            }]}>
-                                                {diff >= 0 ? `Gets back ₹${diff.toFixed(2)}` : `Owes ₹${Math.abs(diff).toFixed(2)}`}
+                                                <Text style={{ fontWeight: '800' }}>{fromName}</Text> owes <Text style={{ fontWeight: '800' }}>{toName}</Text>
                                             </Text>
                                         </View>
-                                    );
-                                })}
-                            </>
+                                        <Text style={[styles.settlementAmount, { color: COLORS.error }]}>
+                                            ₹{s.amount.toFixed(2)}
+                                        </Text>
+                                    </View>
+                                );
+                            })
                         ) : (
-                            <Text style={styles.settlementText}>Add more members to split expenses</Text>
+                            <Text style={styles.settlementText}>
+                                {members.length > 1 ? "Everyone is settled up!" : "Add more members to split expenses."}
+                            </Text>
                         )}
                     </View>
                 </View>
@@ -381,6 +501,44 @@ export default function TripDetailScreen({ route, navigation }) {
                                 />
                             </View>
 
+                            <Text style={styles.formLabel}>Paid By</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                                {members.map(m => {
+                                    const mId = m._id || m.id;
+                                    const isSelected = String(expensePayerId) === String(mId);
+                                    return (
+                                        <TouchableOpacity
+                                            key={mId}
+                                            style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                                            onPress={() => setExpensePayerId(mId)}
+                                        >
+                                            <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                                                {String(mId) === String(userId) ? 'You' : m.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+
+                            <Text style={styles.formLabel}>Split With</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                                {members.map(m => {
+                                    const mId = m._id || m.id;
+                                    const isSelected = expenseSplitWith.includes(mId);
+                                    return (
+                                        <TouchableOpacity
+                                            key={mId}
+                                            style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                                            onPress={() => toggleSplitMember(mId)}
+                                        >
+                                            <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                                                {String(mId) === String(userId) ? 'You' : m.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+
                             <TouchableOpacity
                                 style={styles.ecoToggle}
                                 onPress={() => setIsEcoFriendly(!isEcoFriendly)}
@@ -391,12 +549,12 @@ export default function TripDetailScreen({ route, navigation }) {
                                 <Text style={styles.ecoToggleText}>🌱 Eco-Friendly Expense (+10 Eco Points)</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity onPress={addExpense} activeOpacity={0.8}>
+                            <TouchableOpacity onPress={saveExpense} activeOpacity={0.8}>
                                 <LinearGradient
                                     colors={['#10B981', '#059669']}
                                     style={styles.modalSubmitBtn}
                                 >
-                                    <Text style={styles.modalSubmitText}>Add Expense</Text>
+                                    <Text style={styles.modalSubmitText}>{editingExpenseId ? 'Save Changes' : 'Add Expense'}</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
@@ -581,13 +739,31 @@ const styles = StyleSheet.create({
         fontSize: SIZES.fontXs,
         color: COLORS.textMuted,
     },
+    expenseSplitInfo: {
+        fontSize: 10,
+        color: COLORS.primary,
+        marginTop: 2,
+    },
     expenseAmountBox: {
         alignItems: 'flex-end',
+        marginRight: 12,
     },
     expenseAmount: {
         fontSize: SIZES.fontLg,
         fontWeight: '700',
         color: COLORS.text,
+    },
+    expenseActions: {
+        flexDirection: 'row',
+        gap: 8,
+        paddingLeft: 8,
+        borderLeftWidth: 1,
+        borderLeftColor: COLORS.border,
+    },
+    expActionBtn: {
+        padding: 6,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 8,
     },
     ecoBadge: {
         backgroundColor: 'rgba(16,185,129,0.15)',
@@ -734,6 +910,38 @@ const styles = StyleSheet.create({
     ecoToggleText: {
         fontSize: SIZES.fontSm,
         color: COLORS.textSecondary,
+    },
+    formLabel: {
+        color: COLORS.text,
+        fontSize: SIZES.fontSm,
+        fontWeight: '700',
+        marginTop: 8,
+        marginBottom: -6,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        marginBottom: 8,
+    },
+    choiceChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: SIZES.radiusFull,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        marginRight: 8,
+    },
+    choiceChipActive: {
+        backgroundColor: 'rgba(16,185,129,0.15)',
+        borderColor: COLORS.primary,
+    },
+    choiceChipText: {
+        color: COLORS.textSecondary,
+        fontSize: SIZES.fontSm,
+        fontWeight: '600',
+    },
+    choiceChipTextActive: {
+        color: COLORS.primary,
     },
     modalSubmitBtn: {
         paddingVertical: 14,

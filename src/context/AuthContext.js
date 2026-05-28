@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
 
 const AuthContext = createContext();
 
@@ -66,6 +67,23 @@ export const AuthProvider = ({ children }) => {
                 if (text) {
                     const data = JSON.parse(text);
                     setUser(data);
+                    
+                    // Check if there was a pending trip join from a deep link
+                    const pendingCode = await SecureStore.getItemAsync('pendingJoinCode');
+                    if (pendingCode) {
+                        try {
+                            const joinRes = await fetchWithAuth(`${API_URL}/trips/join`, {
+                                method: 'POST',
+                                body: JSON.stringify({ shareCode: pendingCode, userId: data._id || data.id })
+                            });
+                            if (joinRes.ok) {
+                                alert('Success! You have been added to the trip!');
+                            }
+                            await SecureStore.deleteItemAsync('pendingJoinCode');
+                        } catch (e) {
+                            console.error('Pending join failed', e);
+                        }
+                    }
                 }
             } else {
                 const errorText = await res.text();
