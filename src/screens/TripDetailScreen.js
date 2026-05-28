@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth, API_URL } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +31,11 @@ export default function TripDetailScreen({ route, navigation }) {
     const [expenseSplitWith, setExpenseSplitWith] = useState([]);
     const [editingExpenseId, setEditingExpenseId] = useState(null);
     const [scanning, setScanning] = useState(false);
+    const [proofImageBase64, setProofImageBase64] = useState(null);
+    const [proofLocation, setProofLocation] = useState(null);
+    const [proofTime, setProofTime] = useState(null);
+    const [showProofModal, setShowProofModal] = useState(false);
+    const [selectedProofExpense, setSelectedProofExpense] = useState(null);
 
     useEffect(() => {
         fetchTripData();
@@ -79,27 +85,84 @@ export default function TripDetailScreen({ route, navigation }) {
             allowsEditing: true,
             aspect: [3, 4],
             quality: 0.5,
+            base64: true,
         });
 
-        if (!result.canceled) {
+        if (!result.canceled && result.assets[0].base64) {
             setScanning(true);
             try {
-                const parsed = await parseReceipt(result.assets[0].uri);
+                const parsed = await parseReceipt(result.assets[0].base64);
                 setExpenseDesc(`${parsed.merchant} (Scanned)`);
                 setExpenseAmount(String(parsed.amount));
-                setIsEcoFriendly(parsed.isEcoFriendly);
+                
+                // Note: We don't auto-set isEcoFriendly to true here anymore
+                // because enabling it now requires a proof picture prompt
+                if (parsed.isEcoFriendly) {
+                    Alert.alert("Eco Match", "This looks like an eco-friendly purchase! Tap the Eco-Friendly toggle below to upload a proof picture and claim your points.");
+                }
             } catch (e) {
-                Alert.alert('Scan Failed', 'Could not read the receipt.');
+                Alert.alert('Scan Failed', 'Could not read the receipt or OCR service unavailable.');
             } finally {
                 setScanning(false);
             }
         }
     };
 
+    const handleToggleEcoFriendly = () => {
+        if (isEcoFriendly) {
+            setIsEcoFriendly(false);
+            setProofImageBase64(null);
+            setProofLocation(null);
+            setProofTime(null);
+            return;
+        }
+
+        Alert.alert('Eco-Proof Required', 'To claim Eco-Points, please take a picture as proof (e.g., transit ticket or receipt).', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Take Picture', onPress: async () => {
+                const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+                const locPerm = await Location.requestForegroundPermissionsAsync();
+                
+                if (camPerm.status !== 'granted' || locPerm.status !== 'granted') {
+                    Alert.alert('Permission Denied', 'Camera and Location permissions are required for eco-proof.');
+                    return;
+                }
+
+                let result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ['images'],
+                    allowsEditing: true,
+                    quality: 0.2, // highly compressed for db storage
+                    base64: true,
+                });
+
+                if (!result.canceled && result.assets[0].base64) {
+                    setScanning(true);
+                    try {
+                        let loc = await Location.getLastKnownPositionAsync({});
+                        if (!loc) {
+                            loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
+                        }
+                        setProofLocation({ latitude: loc?.coords?.latitude || 0, longitude: loc?.coords?.longitude || 0 });
+                    } catch (e) {
+                        console.log('Location fetch failed, using fallback.');
+                        setProofLocation({ latitude: 0, longitude: 0 }); // Fallback
+                    }
+                    setProofImageBase64(result.assets[0].base64);
+                    setProofTime(new Date());
+                    setIsEcoFriendly(true);
+                    setScanning(false);
+                }
+            }}
+        ]);
+    };
+
     const openAddExpense = () => {
         setExpenseDesc('');
         setExpenseAmount('');
         setIsEcoFriendly(false);
+        setProofImageBase64(null);
+        setProofLocation(null);
+        setProofTime(null);
         setExpensePayerId(user._id || user.id);
         setExpenseSplitWith(members.map(m => m._id || m.id));
         setEditingExpenseId(null);
@@ -159,6 +222,9 @@ export default function TripDetailScreen({ route, navigation }) {
                 payerId: expensePayerId,
                 splitWith: expenseSplitWith,
                 isEcoFriendly,
+                proofImageBase64,
+                proofLocation,
+                proofTime,
             };
 
             const url = editingExpenseId ? `${API_URL}/expenses/${editingExpenseId}` : `${API_URL}/expenses`;
@@ -283,6 +349,7 @@ export default function TripDetailScreen({ route, navigation }) {
 
     const { balances, settlements } = members.length > 0 ? calculateSettlement() : { balances: {}, settlements: [] };
     const myBalance = balances[String(userId)] || 0;
+    const youPaid = expenses.filter(e => String(e.payerId) === String(userId)).reduce((sum, e) => sum + (e.amount || 0), 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
     return (
@@ -312,9 +379,9 @@ export default function TripDetailScreen({ route, navigation }) {
                         <Text style={styles.statValue}>₹{totalExpenses.toFixed(2)}</Text>
                     </View>
                     <View style={styles.statCard}>
-                        <Text style={styles.statLabel}>Your Balance</Text>
-                        <Text style={[styles.statValue, { color: myBalance >= 0 ? COLORS.primary : COLORS.error }]}>
-                            {myBalance >= 0 ? '+' : '-'}₹{Math.abs(myBalance).toFixed(2)}
+                        <Text style={styles.statLabel}>You Paid</Text>
+                        <Text style={[styles.statValue, { color: COLORS.primary }]}>
+                            ₹{youPaid.toFixed(2)}
                         </Text>
                     </View>
                     <View style={styles.statCard}>
@@ -349,7 +416,7 @@ export default function TripDetailScreen({ route, navigation }) {
 
                 {/* Eco-Hotspot Map */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Eco-Hotspots 🗺️</Text>
+                    <Text style={styles.sectionTitle}>Tourist Attractions 🗺️</Text>
                     <EcoMap destination={trip.destination} />
                 </View>
 
@@ -401,6 +468,14 @@ export default function TripDetailScreen({ route, navigation }) {
                                         )}
                                     </View>
                                     <View style={styles.expenseActions}>
+                                        {exp.isEcoFriendly && exp.proofImageBase64 && (
+                                            <TouchableOpacity onPress={() => {
+                                                setSelectedProofExpense(exp);
+                                                setShowProofModal(true);
+                                            }} style={styles.expActionBtn}>
+                                                <Ionicons name="eye" size={16} color="#10B981" />
+                                            </TouchableOpacity>
+                                        )}
                                         <TouchableOpacity onPress={() => openEditExpense(exp)} style={styles.expActionBtn}>
                                             <Ionicons name="pencil" size={16} color={COLORS.primary} />
                                         </TouchableOpacity>
@@ -426,23 +501,40 @@ export default function TripDetailScreen({ route, navigation }) {
                                 const toName = String(s.to) === String(userId) ? 'You' : toMember?.name;
                                 
                                 return (
-                                    <View key={i} style={styles.settlementRow}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                            <Ionicons name="cash-outline" size={20} color={COLORS.primary} />
-                                            <Text style={styles.settlementName}>
-                                                <Text style={{ fontWeight: '800' }}>{fromName}</Text> owes <Text style={{ fontWeight: '800' }}>{toName}</Text>
-                                            </Text>
+                                    <View key={i} style={[styles.settlementRow, { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Ionicons name="wallet" size={20} color={COLORS.primary} />
+                                            </View>
+                                            <View>
+                                                <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+                                                    <Text style={{ color: COLORS.text, fontWeight: '700' }}>{fromName}</Text> needs to pay
+                                                </Text>
+                                                <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '800', marginTop: 2 }}>
+                                                    {toName}
+                                                </Text>
+                                            </View>
                                         </View>
-                                        <Text style={[styles.settlementAmount, { color: COLORS.error }]}>
-                                            ₹{s.amount.toFixed(2)}
-                                        </Text>
+                                        <View style={{ alignItems: 'flex-end' }}>
+                                            <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '800' }}>
+                                                ₹{s.amount.toFixed(2)}
+                                            </Text>
+                                            {String(s.from) === String(userId) && (
+                                                <TouchableOpacity style={{ marginTop: 8, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Pay Now</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
                                     </View>
                                 );
                             })
                         ) : (
-                            <Text style={styles.settlementText}>
-                                {members.length > 1 ? "Everyone is settled up!" : "Add more members to split expenses."}
-                            </Text>
+                            <View style={{ alignItems: 'center', padding: 20 }}>
+                                <Text style={{ fontSize: 40, marginBottom: 10 }}>🎉</Text>
+                                <Text style={styles.settlementText}>
+                                    {members.length > 1 ? "Everyone is settled up! Zero balances." : "Add more members to split expenses."}
+                                </Text>
+                            </View>
                         )}
                     </View>
                 </View>
@@ -541,12 +633,12 @@ export default function TripDetailScreen({ route, navigation }) {
 
                             <TouchableOpacity
                                 style={styles.ecoToggle}
-                                onPress={() => setIsEcoFriendly(!isEcoFriendly)}
+                                onPress={handleToggleEcoFriendly}
                             >
                                 <View style={[styles.checkbox, isEcoFriendly && styles.checkboxActive]}>
                                     {isEcoFriendly && <Ionicons name="checkmark" size={16} color="#fff" />}
                                 </View>
-                                <Text style={styles.ecoToggleText}>🌱 Eco-Friendly Expense (+10 Eco Points)</Text>
+                                <Text style={styles.ecoToggleText}>🌱 Eco-Friendly Expense (+15 Eco Points)</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity onPress={saveExpense} activeOpacity={0.8}>
@@ -558,6 +650,49 @@ export default function TripDetailScreen({ route, navigation }) {
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Proof Modal */}
+            <Modal visible={showProofModal} animationType="slide" transparent={true}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Eco Proof</Text>
+                            <TouchableOpacity onPress={() => setShowProofModal(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+                        {selectedProofExpense && (
+                            <View style={{ alignItems: 'center', marginTop: 10 }}>
+                                <Image 
+                                    source={{ uri: `data:image/jpeg;base64,${selectedProofExpense.proofImageBase64}` }} 
+                                    style={{ width: '100%', height: 300, borderRadius: 10, resizeMode: 'cover' }} 
+                                />
+                                {selectedProofExpense.proofTime && (
+                                    <View style={{ marginTop: 15, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8 }}>
+                                        <Ionicons name="time" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                                        <Text style={{ color: COLORS.text, fontSize: 16 }}>
+                                            {new Date(selectedProofExpense.proofTime).toLocaleString()}
+                                        </Text>
+                                    </View>
+                                )}
+                                {selectedProofExpense.proofLocation && (
+                                    <TouchableOpacity 
+                                        style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
+                                        onPress={() => {
+                                            const { latitude, longitude } = selectedProofExpense.proofLocation;
+                                            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
+                                        }}
+                                    >
+                                        <Ionicons name="map" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                                        <Text style={{ color: COLORS.text, fontSize: 16, flex: 1 }}>View Location on Map</Text>
+                                        <Ionicons name="open-outline" size={16} color={COLORS.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>

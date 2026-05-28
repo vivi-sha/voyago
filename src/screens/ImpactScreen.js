@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator, Dimensions
 } from 'react-native';
@@ -18,31 +19,63 @@ export default function ImpactScreen({ navigation }) {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const ecoPoints = user?.ecoPoints || 0;
-    const treesCount = Math.floor(ecoPoints / 100);
     
-    // Create up to 100 animated values for our trees to spring in
-    const treeAnims = useRef([...Array(100)].map(() => new Animated.Value(0))).current;
+    // Determine growth stage based on points
+    let plantIcon = 'seed-outline';
+    let plantColor = COLORS.primary;
+    let plantSize = 60;
+    let stageName = 'Seed';
+    
+    if (ecoPoints >= 500) {
+        plantIcon = 'pine-tree';
+        plantSize = 140;
+        stageName = 'Mighty Pine';
+    } else if (ecoPoints >= 300) {
+        plantIcon = 'tree';
+        plantSize = 120;
+        stageName = 'Large Tree';
+    } else if (ecoPoints >= 100) {
+        plantIcon = 'tree-outline';
+        plantSize = 100;
+        stageName = 'Young Tree';
+    } else if (ecoPoints >= 50) {
+        plantIcon = 'flower';
+        plantSize = 80;
+        plantColor = '#EC4899'; // pink flower
+        stageName = 'Blooming Plant';
+    } else if (ecoPoints >= 10) {
+        plantIcon = 'sprout';
+        plantSize = 70;
+        stageName = 'Sprout';
+    } else if (ecoPoints >= 5) {
+        plantIcon = 'seed';
+        plantSize = 60;
+        stageName = 'Germinating Seed';
+    }
+
+    const scaleAnim = useRef(new Animated.Value(0.5)).current;
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshUser();
+            fetchActivities();
+        }, [refreshUser, user?._id, user?.ecoPoints])
+    );
 
     useEffect(() => {
-        refreshUser();
-        fetchActivities();
         Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     }, []);
 
-    // Animate trees whenever the count changes
+    // Animate plant whenever the icon or points change
     useEffect(() => {
-        if (treesCount > 0) {
-            const animations = treeAnims.slice(0, Math.min(treesCount, 100)).map(anim =>
-                Animated.spring(anim, {
-                    toValue: 1,
-                    friction: 5,
-                    tension: 40,
-                    useNativeDriver: true,
-                })
-            );
-            Animated.stagger(100, animations).start();
-        }
-    }, [treesCount]);
+        scaleAnim.setValue(0.5);
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 4,
+            tension: 40,
+            useNativeDriver: true,
+        }).start();
+    }, [plantIcon, ecoPoints]);
 
     const fetchActivities = async () => {
         const userId = user?._id || user?.id;
@@ -51,8 +84,8 @@ export default function ImpactScreen({ navigation }) {
             return;
         }
         try {
-            const userId = user?._id || user?.id;
-            const res = await fetchWithAuth(`${API_URL}/expenses?payerId=${userId}`);
+            // Add a cache buster to ensure it fetches fresh data in real-time
+            const res = await fetchWithAuth(`${API_URL}/expenses?participantId=${userId}&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 const ecoActivities = data
@@ -60,8 +93,10 @@ export default function ImpactScreen({ navigation }) {
                     .map(e => ({
                         title: e.description,
                         date: e.date,
-                        points: 10,
+                        points: 15,
                     }));
+                
+                // Add dummy daily challenge if points are high just to show history (Optional)
                 setActivities(ecoActivities);
             }
         } catch (e) {
@@ -127,35 +162,19 @@ export default function ImpactScreen({ navigation }) {
 
                 {/* Dynamic Virtual Forest */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Your Virtual Forest 🌳</Text>
+                    <Text style={styles.sectionTitle}>Your Virtual Plant 🌱</Text>
                     <View style={styles.forestContainer}>
-                        {treesCount === 0 ? (
-                            <View style={styles.emptyForest}>
-                                <View style={styles.seedContainer}>
-                                    <MaterialCommunityIcons name="seed-outline" size={40} color={COLORS.primary} />
-                                </View>
-                                <Text style={styles.emptyForestText}>Plant your first seed!</Text>
-                                <Text style={styles.emptyForestSubtext}>Earn 100 Eco Points to grow a tree.</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.forestGrid}>
-                                {[...Array(Math.min(treesCount, 100))].map((_, i) => (
-                                    <Animated.View 
-                                        key={i} 
-                                        style={[
-                                            styles.treeWrapper,
-                                            { transform: [{ scale: treeAnims[i] }] }
-                                        ]}
-                                    >
-                                        <MaterialCommunityIcons 
-                                            name={i % 3 === 0 ? "pine-tree" : "tree"} 
-                                            size={48} 
-                                            color={COLORS.primary} 
-                                        />
-                                    </Animated.View>
-                                ))}
-                            </View>
-                        )}
+                        <View style={styles.singlePlantContainer}>
+                            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                <MaterialCommunityIcons 
+                                    name={plantIcon} 
+                                    size={plantSize} 
+                                    color={plantColor} 
+                                />
+                            </Animated.View>
+                            <Text style={styles.plantStageText}>Current Stage: {stageName}</Text>
+                            <Text style={styles.plantPointsText}>{ecoPoints} Points</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -287,38 +306,22 @@ const styles = StyleSheet.create({
         minHeight: 140,
         justifyContent: 'center',
     },
-    emptyForest: {
-        alignItems: 'center',
-    },
-    seedContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    singlePlantContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
+        paddingVertical: 20,
     },
-    emptyForestText: {
+    plantStageText: {
         fontSize: SIZES.fontLg,
-        fontWeight: '600',
+        fontWeight: '700',
         color: COLORS.text,
-        marginBottom: 4,
+        marginTop: 16,
     },
-    emptyForestSubtext: {
-        fontSize: SIZES.fontSm,
-        color: COLORS.textSecondary,
-    },
-    forestGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        justifyContent: 'flex-start',
-    },
-    treeWrapper: {
-        padding: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
+    plantPointsText: {
+        fontSize: SIZES.fontMd,
+        color: COLORS.primary,
+        marginTop: 4,
+        fontWeight: '600',
     },
     chartCard: {
         backgroundColor: COLORS.backgroundCard,

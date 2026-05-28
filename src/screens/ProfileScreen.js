@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Animated
 } from 'react-native';
@@ -19,8 +20,13 @@ export default function ProfileScreen({ navigation }) {
     const profileEmail = user?.email || clerkUser?.primaryEmailAddress?.emailAddress || '';
     const profilePhoto = user?.photoUrl || clerkUser?.imageUrl;
 
+    useFocusEffect(
+        useCallback(() => {
+            refreshUser();
+        }, [refreshUser])
+    );
+
     useEffect(() => {
-        refreshUser();
         Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     }, []);
 

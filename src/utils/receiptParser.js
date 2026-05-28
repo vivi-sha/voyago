@@ -26,44 +26,45 @@ export const checkEcoFriendly = (text) => {
     return ECO_KEYWORDS.some(keyword => lowerText.includes(keyword));
 };
 
-export const parseReceipt = async (imageUri) => {
-    // In a real app, we would send the imageUri to Google Cloud Vision, AWS Textract, or a local ML model.
-    // For this prototype, we'll simulate a 1.5s OCR parsing delay and return deterministic mock data based on the filename or random seed.
-    
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // Generate some random realistic mock data
-            const isEcoMock = Math.random() > 0.5;
-            
-            const merchants = isEcoMock ? 
-                ['City Metro Transit', 'Green Leaf Vegan Cafe', 'Amtrak Railway', 'Lime Bike Share', 'Organic Farmers Market'] :
-                ['Starbucks', 'Uber Ride', 'McDonalds', 'Shell Gas Station', 'Target'];
-                
-            const merchant = merchants[Math.floor(Math.random() * merchants.length)];
-            const amount = (Math.random() * 50 + 5).toFixed(2);
-            
-            // Generate raw text that contains keywords if it's an eco mock
-            const rawText = `
-                ${merchant.toUpperCase()}
-                Date: ${new Date().toLocaleDateString()}
-                Time: ${new Date().toLocaleTimeString()}
-                
-                1x Ticket/Item        ${amount}
-                Tax                   ${(amount * 0.08).toFixed(2)}
-                
-                TOTAL                 ${(parseFloat(amount) + parseFloat(amount * 0.08)).toFixed(2)}
-                
-                Thank you for your business!
-            `.trim();
-            
-            const isEcoFriendly = checkEcoFriendly(merchant + " " + rawText);
+export const parseReceipt = async (base64Image) => {
+    try {
+        let formData = new FormData();
+        formData.append('base64Image', `data:image/jpeg;base64,${base64Image}`);
+        formData.append('apikey', 'helloworld');
+        formData.append('isTable', 'true');
+        formData.append('OCREngine', '2');
 
-            resolve({
-                merchant,
-                amount: (parseFloat(amount) + parseFloat(amount * 0.08)).toFixed(2),
-                rawText,
-                isEcoFriendly
-            });
-        }, 1500);
-    });
+        const response = await fetch('https://api.ocr.space/parse/image', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const data = await response.json();
+        
+        if (data.IsErroredOnProcessing || !data.ParsedResults || data.ParsedResults.length === 0) {
+            throw new Error('Failed to parse image');
+        }
+
+        const text = data.ParsedResults[0].ParsedText || '';
+        
+        // Extract amount: look for the highest number with a decimal
+        const amounts = text.match(/\b\d+\.\d{2}\b/g) || [];
+        const maxAmount = amounts.length > 0 ? Math.max(...amounts.map(Number)) : 0;
+        
+        // Extract merchant: usually the first non-empty line
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 3 && !l.match(/^\d/));
+        const merchant = lines.length > 0 ? lines[0] : 'Unknown Merchant';
+        
+        const isEcoFriendly = checkEcoFriendly(text);
+
+        return {
+            merchant: merchant.substring(0, 30),
+            amount: maxAmount > 0 ? maxAmount.toFixed(2) : '',
+            rawText: text,
+            isEcoFriendly
+        };
+    } catch (e) {
+        console.error('OCR Error:', e);
+        throw e;
+    }
 };

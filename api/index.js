@@ -6,7 +6,8 @@ const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -70,6 +71,9 @@ const expenseSchema = new mongoose.Schema({
     payerId: mongoose.Schema.Types.ObjectId,
     splitWith: [mongoose.Schema.Types.ObjectId],
     isEcoFriendly: { type: Boolean, default: false },
+    proofImageBase64: String,
+    proofLocation: { latitude: Number, longitude: Number },
+    proofTime: Date,
     date: { type: Date, default: Date.now },
 }, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
@@ -130,7 +134,13 @@ app.post('/api/auth/google', async (req, res) => {
 app.get('/api/users/:id', async (req, res) => {
     await connectDB();
     try {
-        const user = await User.findById(req.params.id);
+        // Find by ObjectId if valid, else by clerkId
+        let query = { clerkId: req.params.id };
+        if (mongoose.isValidObjectId(req.params.id)) {
+            query = { $or: [{ _id: req.params.id }, { clerkId: req.params.id }] };
+        }
+        
+        const user = await User.findOne(query);
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json(user);
     } catch (error) {
@@ -232,10 +242,11 @@ app.get('/api/trips/:id', async (req, res) => {
 app.get('/api/expenses', async (req, res) => {
     await connectDB();
     try {
-        const { tripId, payerId } = req.query;
+        const { tripId, payerId, participantId } = req.query;
         let filter = {};
         if (tripId) filter.tripId = tripId;
         if (payerId) filter.payerId = payerId;
+        if (participantId) filter.splitWith = participantId; // matches if array contains it
         
         const expenses = await Expense.find(filter).sort({ date: -1 });
         res.json(expenses);
@@ -251,11 +262,12 @@ app.post('/api/expenses', async (req, res) => {
         const expense = new Expense(req.body);
         await expense.save();
         
-        // Award Eco Points if applicable
-        if (expense.isEcoFriendly) {
-            await User.findByIdAndUpdate(expense.payerId, {
-                $inc: { ecoPoints: 10 }
-            });
+        // Award Eco Points to all participants if applicable
+        if (expense.isEcoFriendly && expense.splitWith && expense.splitWith.length > 0) {
+            await User.updateMany(
+                { _id: { $in: expense.splitWith } },
+                { $inc: { ecoPoints: 15 } }
+            );
         }
         res.json(expense);
     } catch (error) {
@@ -282,11 +294,12 @@ app.delete('/api/expenses/:id', async (req, res) => {
         const expense = await Expense.findByIdAndDelete(req.params.id);
         if (!expense) return res.status(404).json({ error: 'Expense not found' });
         
-        // Remove eco points if it was eco-friendly
-        if (expense.isEcoFriendly) {
-            await User.findByIdAndUpdate(expense.payerId, {
-                $inc: { ecoPoints: -10 }
-            });
+        // Remove eco points from all participants if it was eco-friendly
+        if (expense.isEcoFriendly && expense.splitWith && expense.splitWith.length > 0) {
+            await User.updateMany(
+                { _id: { $in: expense.splitWith } },
+                { $inc: { ecoPoints: -15 } }
+            );
         }
         res.json({ message: 'Expense deleted' });
     } catch (error) {

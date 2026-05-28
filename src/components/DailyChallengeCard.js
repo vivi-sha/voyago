@@ -139,15 +139,15 @@ export default function DailyChallengeCard({ user, refreshUser }) {
 
 const styles = StyleSheet.create({
     card: {
-        marginBottom: 20,
-        borderRadius: SIZES.radiusLg,
+        marginBottom: 12,
+        borderRadius: SIZES.radiusMd,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(16,185,129,0.3)',
         ...SHADOWS.medium,
     },
     gradient: {
-        padding: 20,
+        padding: 14,
     },
     header: {
         flexDirection: 'row',
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     title: {
-        fontSize: SIZES.fontLg,
+        fontSize: SIZES.fontMd,
         fontWeight: '800',
         color: COLORS.text,
         marginLeft: 8,
@@ -173,10 +173,10 @@ const styles = StyleSheet.create({
         fontSize: SIZES.fontXs,
     },
     question: {
-        fontSize: SIZES.fontMd,
+        fontSize: SIZES.fontSm,
         color: COLORS.text,
-        lineHeight: 22,
-        marginBottom: 20,
+        lineHeight: 18,
+        marginBottom: 12,
     },
     optionsContainer: {
         gap: 10,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderWidth: 1,
         borderColor: COLORS.border,
-        padding: 14,
+        padding: 10,
         borderRadius: SIZES.radiusMd,
     },
     optionText: {
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     },
     primaryBtn: {
         backgroundColor: COLORS.primary,
-        padding: 16,
+        padding: 12,
         borderRadius: SIZES.radiusMd,
         alignItems: 'center',
     },
