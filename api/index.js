@@ -238,6 +238,87 @@ app.get('/api/trips/:id', async (req, res) => {
     }
 });
 
+// Deep Link Redirect for WhatsApp
+app.get('/api/join/:code', (req, res) => {
+    const code = req.params.code;
+    const redirectUrl = req.query.redirect;
+    if (redirectUrl) {
+        res.redirect(redirectUrl);
+    } else {
+        // Redirect to Voyago APK custom scheme for production
+        res.redirect(`voyago://join?code=${code}`);
+    }
+});
+
+// Update Trip
+app.put('/api/trips/:id', async (req, res) => {
+    await connectDB();
+    try {
+        const { name, destination } = req.body;
+        const trip = await Trip.findByIdAndUpdate(req.params.id, { name, destination }, { new: true });
+        if (!trip) return res.status(404).json({ error: 'Trip not found' });
+        res.json(trip);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Trip
+app.delete('/api/trips/:id', async (req, res) => {
+    await connectDB();
+    try {
+        const { userId } = req.query;
+        const trip = await Trip.findById(req.params.id);
+        if (!trip) return res.status(404).json({ error: 'Trip not found' });
+        
+        if (String(trip.creatorId) !== String(userId)) {
+            return res.status(403).json({ error: 'Only the creator can delete this trip' });
+        }
+        
+        // Delete all expenses associated with the trip
+        await Expense.deleteMany({ tripId: req.params.id });
+        // Delete the trip itself
+        await Trip.findByIdAndDelete(req.params.id);
+        
+        res.json({ message: 'Trip and expenses deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Leave Trip
+app.post('/api/trips/:id/leave', async (req, res) => {
+    await connectDB();
+    try {
+        const { userId, newCreatorId } = req.body;
+        const trip = await Trip.findById(req.params.id);
+        if (!trip) return res.status(404).json({ error: 'Trip not found' });
+        
+        if (String(trip.creatorId) === String(userId)) {
+            if (trip.members.length > 1 && !newCreatorId) {
+                return res.status(400).json({ error: 'You must designate a new creator before leaving.' });
+            }
+            if (newCreatorId) {
+                trip.creatorId = newCreatorId;
+            }
+        }
+        
+        trip.members = trip.members.filter(m => String(m) !== String(userId));
+        
+        // If no members left, delete the trip and expenses
+        if (trip.members.length === 0) {
+            await Expense.deleteMany({ tripId: req.params.id });
+            await Trip.findByIdAndDelete(req.params.id);
+            return res.json({ message: 'Trip deleted as it has no members left' });
+        }
+        
+        await trip.save();
+        res.json(trip);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get Expenses
 app.get('/api/expenses', async (req, res) => {
     await connectDB();

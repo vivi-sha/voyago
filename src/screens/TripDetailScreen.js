@@ -37,6 +37,13 @@ export default function TripDetailScreen({ route, navigation }) {
     const [showProofModal, setShowProofModal] = useState(false);
     const [selectedProofExpense, setSelectedProofExpense] = useState(null);
 
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
+    const [showEditTripModal, setShowEditTripModal] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [editTripName, setEditTripName] = useState(initialTrip.name || '');
+    const [editTripDest, setEditTripDest] = useState(initialTrip.destination || '');
+    const [newCreatorId, setNewCreatorId] = useState(null);
+
     useEffect(() => {
         fetchTripData();
     }, []);
@@ -254,11 +261,82 @@ export default function TripDetailScreen({ route, navigation }) {
         }
     };
 
+    const handleEditTrip = async () => {
+        if (!editTripName.trim() || !editTripDest.trim()) {
+            return Alert.alert('Error', 'Name and destination are required');
+        }
+        try {
+            const res = await fetchWithAuth(`${API_URL}/trips/${trip._id || trip.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: editTripName, destination: editTripDest })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setTrip(updated);
+                setShowEditTripModal(false);
+                triggerSuccess();
+            } else {
+                Alert.alert('Error', 'Failed to update trip');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to update trip');
+        }
+    };
+
+    const handleDeleteTrip = () => {
+        Alert.alert('Delete Trip', 'Are you sure you want to delete this trip and all its expenses? This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+                text: 'Delete', 
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const res = await fetchWithAuth(`${API_URL}/trips/${trip._id || trip.id}?userId=${userId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            triggerSuccess();
+                            navigation.goBack();
+                        } else {
+                            const data = await res.json();
+                            Alert.alert('Error', data.error || 'Failed to delete trip');
+                        }
+                    } catch (e) {
+                        Alert.alert('Error', 'Failed to delete trip');
+                    }
+                }
+            }
+        ]);
+    };
+
+    const handleLeaveTrip = async () => {
+        if (String(trip.creatorId) === String(userId) && members.length > 1 && !newCreatorId) {
+            return Alert.alert('Error', 'You must select a new creator before leaving.');
+        }
+        try {
+            const res = await fetchWithAuth(`${API_URL}/trips/${trip._id || trip.id}/leave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, newCreatorId })
+            });
+            if (res.ok) {
+                triggerSuccess();
+                navigation.goBack();
+            } else {
+                const data = await res.json();
+                Alert.alert('Error', data.error || 'Failed to leave trip');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to leave trip');
+        }
+    };
+
     const shareTrip = async () => {
         try {
-            const link = Linking.createURL('join', { queryParams: { code: trip.shareCode } });
+            // Production Vercel URL that redirects to voyago:// custom scheme
+            const shareableLink = `https://ecoshare-eight.vercel.app/api/join/${trip.shareCode}`;
+            
             await Share.share({
-                message: `Join my trip "${trip.name}" on Voyago!\n\nClick this link to join automatically: ${link}`,
+                message: `🌍 You've been invited to join the trip "${trip.name}" on Voyago!\n\nClick to join:\n${shareableLink}\n\n(Or enter code manually: *${trip.shareCode}*)`,
             });
         } catch (e) {
             console.error(e);
@@ -360,6 +438,11 @@ export default function TripDetailScreen({ route, navigation }) {
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
                     </TouchableOpacity>
+                    <View style={{ position: 'absolute', top: insets.top + 16, right: 16, zIndex: 10 }}>
+                        <TouchableOpacity onPress={() => setShowOptionsModal(true)} style={{ padding: 8 }}>
+                            <Ionicons name="ellipsis-vertical" size={24} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
                     <Text style={styles.tripName}>{trip?.name || 'Trip'}</Text>
                     <View style={styles.tripMeta}>
                         <Ionicons name="location" size={16} color={COLORS.primary} />
@@ -693,6 +776,142 @@ export default function TripDetailScreen({ route, navigation }) {
                                 )}
                             </View>
                         )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Options Modal */}
+            <Modal visible={showOptionsModal} transparent animationType="fade">
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOptionsModal(false)}>
+                    <View style={[styles.modalContent, { marginTop: 'auto', marginBottom: 40, marginHorizontal: 20 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Trip Options</Text>
+                            <TouchableOpacity onPress={() => setShowOptionsModal(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <TouchableOpacity 
+                            style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                            onPress={() => { setShowOptionsModal(false); setShowEditTripModal(true); }}
+                        >
+                            <Ionicons name="pencil" size={20} color={COLORS.text} />
+                            <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '600' }}>Edit Trip Details</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={{ paddingVertical: 16, borderBottomWidth: String(trip?.creatorId) === String(userId) ? 1 : 0, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                            onPress={() => {
+                                setShowOptionsModal(false);
+                                if (String(trip?.creatorId) === String(userId) && members.length > 1) {
+                                    setShowLeaveModal(true);
+                                } else {
+                                    Alert.alert('Leave Trip', 'Are you sure you want to leave this trip?', [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        { text: 'Leave', style: 'destructive', onPress: handleLeaveTrip }
+                                    ]);
+                                }
+                            }}
+                        >
+                            <Ionicons name="exit-outline" size={20} color={COLORS.error} />
+                            <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Leave Trip</Text>
+                        </TouchableOpacity>
+                        
+                        {String(trip?.creatorId) === String(userId) && (
+                            <TouchableOpacity 
+                                style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                onPress={() => { setShowOptionsModal(false); handleDeleteTrip(); }}
+                            >
+                                <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                                <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Delete Trip</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Edit Trip Modal */}
+            <Modal visible={showEditTripModal} transparent animationType="slide">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Trip</Text>
+                            <TouchableOpacity onPress={() => setShowEditTripModal(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={styles.formLabel}>Trip Name</Text>
+                        <View style={styles.inputGroup}>
+                            <Ionicons name="text-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. Summer Vacation"
+                                placeholderTextColor={COLORS.textSecondary}
+                                value={editTripName}
+                                onChangeText={setEditTripName}
+                            />
+                        </View>
+                        
+                        <Text style={styles.formLabel}>Destination</Text>
+                        <View style={styles.inputGroup}>
+                            <Ionicons name="location-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. Hawaii"
+                                placeholderTextColor={COLORS.textSecondary}
+                                value={editTripDest}
+                                onChangeText={setEditTripDest}
+                            />
+                        </View>
+
+                        <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleEditTrip}>
+                            <LinearGradient colors={['#10B981', '#059669']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
+                            <Text style={styles.modalSubmitText}>Save Changes</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Leave Trip Modal (For Creator) */}
+            <Modal visible={showLeaveModal} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Assign New Creator</Text>
+                            <TouchableOpacity onPress={() => setShowLeaveModal(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={{ color: COLORS.textSecondary, marginBottom: 16 }}>
+                            Since you created this trip, you must assign someone else to manage it before you can leave.
+                        </Text>
+                        
+                        <ScrollView style={{ maxHeight: 200, marginBottom: 16 }}>
+                            {members.filter(m => String(m._id || m.id) !== String(userId)).map(m => (
+                                <TouchableOpacity 
+                                    key={m._id || m.id}
+                                    style={[{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }, newCreatorId === (m._id || m.id) && { borderColor: COLORS.primary, backgroundColor: 'rgba(16,185,129,0.1)' }]}
+                                    onPress={() => setNewCreatorId(m._id || m.id)}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: COLORS.text, fontWeight: '700' }}>{m.name}</Text>
+                                        <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{m.email}</Text>
+                                    </View>
+                                    {newCreatorId === (m._id || m.id) && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <TouchableOpacity 
+                            style={[styles.modalSubmitBtn, { opacity: newCreatorId ? 1 : 0.5 }]} 
+                            disabled={!newCreatorId}
+                            onPress={handleLeaveTrip}
+                        >
+                            <LinearGradient colors={['#EF4444', '#DC2626']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
+                            <Text style={styles.modalSubmitText}>Confirm Leave</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
