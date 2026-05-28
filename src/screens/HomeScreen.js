@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Animated, Dimensions, StatusBar
+    Animated, Dimensions, StatusBar, Modal, Pressable
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ const FEATURES = [
         icon: 'map-outline',
         title: 'Smart Itinerary',
         desc: 'Collaborate on itineraries in real-time with friends.',
+        info: 'Our Smart Itinerary allows you to invite friends, add destinations, vote on places to visit, and automatically optimize your routes based on travel time and eco-friendly options.',
         color: '#10B981',
         gradient: ['#10B981', '#059669'],
     },
@@ -22,6 +23,7 @@ const FEATURES = [
         icon: 'wallet-outline',
         title: 'Fair Splitting',
         desc: 'Track expenses and settle debts without the awkwardness.',
+        info: 'Never worry about who owes who. Simply add expenses on the go, choose who was involved, and Voyago will calculate the fairest way to settle up at the end of the trip.',
         color: '#3B82F6',
         gradient: ['#3B82F6', '#2563EB'],
     },
@@ -29,6 +31,7 @@ const FEATURES = [
         icon: 'leaf-outline',
         title: 'Eco Insights',
         desc: 'See the carbon impact of your travel choices and get rewards.',
+        info: 'We partner with sustainable businesses and carbon offset programs. See exactly how much CO2 you emit and learn actionable steps to minimize your footprint while earning rewards.',
         color: '#F59E0B',
         gradient: ['#F59E0B', '#D97706'],
     },
@@ -42,6 +45,7 @@ const STATS = [
 
 export default function HomeScreen({ navigation }) {
     const insets = useSafeAreaInsets();
+    const [selectedFeature, setSelectedFeature] = useState(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -148,19 +152,24 @@ export default function HomeScreen({ navigation }) {
                                 }],
                             }]}
                         >
-                            <LinearGradient
-                                colors={['rgba(30,41,59,0.95)', 'rgba(15,23,42,0.98)']}
-                                style={styles.featureCardGradient}
+                            <TouchableOpacity 
+                                activeOpacity={0.8}
+                                onPress={() => setSelectedFeature(feature)}
                             >
-                                <View style={[styles.featureIconBox, { backgroundColor: `${feature.color}20` }]}>
-                                    <Ionicons name={feature.icon} size={28} color={feature.color} />
-                                </View>
-                                <View style={styles.featureTextBox}>
-                                    <Text style={styles.featureTitle}>{feature.title}</Text>
-                                    <Text style={styles.featureDesc}>{feature.desc}</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
-                            </LinearGradient>
+                                <LinearGradient
+                                    colors={['rgba(30,41,59,0.95)', 'rgba(15,23,42,0.98)']}
+                                    style={styles.featureCardGradient}
+                                >
+                                    <View style={[styles.featureIconBox, { backgroundColor: `${feature.color}20` }]}>
+                                        <Ionicons name={feature.icon} size={28} color={feature.color} />
+                                    </View>
+                                    <View style={styles.featureTextBox}>
+                                        <Text style={styles.featureTitle}>{feature.title}</Text>
+                                        <Text style={styles.featureDesc}>{feature.desc}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </Animated.View>
                     ))}
                 </View>
@@ -215,6 +224,47 @@ export default function HomeScreen({ navigation }) {
                     </Text>
                 </View>
             </ScrollView>
+
+            {/* Custom Feature Info Modal */}
+            <Modal
+                visible={!!selectedFeature}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setSelectedFeature(null)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setSelectedFeature(null)}>
+                    <View style={styles.modalContent}>
+                        {selectedFeature && (
+                            <LinearGradient
+                                colors={['rgba(30,41,59,0.98)', 'rgba(15,23,42,1)']}
+                                style={styles.modalGradient}
+                            >
+                                <View style={[styles.modalIconBox, { backgroundColor: `${selectedFeature.color}20` }]}>
+                                    <Ionicons name={selectedFeature.icon} size={36} color={selectedFeature.color} />
+                                </View>
+                                
+                                <Text style={styles.modalTitle}>{selectedFeature.title}</Text>
+                                <Text style={styles.modalDesc}>{selectedFeature.info}</Text>
+
+                                <TouchableOpacity
+                                    style={styles.modalCloseBtn}
+                                    onPress={() => setSelectedFeature(null)}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={[selectedFeature.gradient[0], selectedFeature.gradient[1]]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.modalCloseBtnGradient}
+                                    >
+                                        <Text style={styles.modalCloseBtnText}>Got it!</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </LinearGradient>
+                        )}
+                    </View>
+                </Pressable>
+            </Modal>
         </View>
     );
 }
@@ -477,5 +527,61 @@ const styles = StyleSheet.create({
     footerCopyright: {
         fontSize: SIZES.fontXs,
         color: COLORS.textMuted,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        width: '100%',
+        borderRadius: SIZES.radiusXl,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.glassStroke,
+        ...SHADOWS.glow,
+    },
+    modalGradient: {
+        padding: 32,
+        alignItems: 'center',
+    },
+    modalIconBox: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: COLORS.text,
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    modalDesc: {
+        fontSize: SIZES.fontMd,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+    },
+    modalCloseBtn: {
+        width: '100%',
+        borderRadius: SIZES.radiusMd,
+    },
+    modalCloseBtnGradient: {
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: SIZES.radiusMd,
+    },
+    modalCloseBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: SIZES.fontLg,
     },
 });

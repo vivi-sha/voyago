@@ -12,13 +12,8 @@ const PRODUCTION_URL = 'https://ecoshare-eight.vercel.app/api';
 // const LOCAL_URL = `http://${LOCAL_IP}:5000/api`;
 
 const getApiUrl = () => {
-    // Always use the production Vercel API
-    return PRODUCTION_URL;
-
-    // --- Uncomment below for local development ---
-    // if (Platform.OS === 'android') return `http://${LOCAL_IP}:5000/api`;
-    // if (Platform.OS === 'ios') return `http://${LOCAL_IP}:5000/api`;
-    // return 'http://localhost:5000/api';
+    // Use local backend for Expo development
+    return `http://192.168.31.52:5000/api`;
 };
 
 const API_URL = getApiUrl();
@@ -75,6 +70,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 const errorText = await res.text();
                 console.error(`Backend error (${res.status}):`, errorText);
+                throw new Error(`Backend error ${res.status}`);
             }
         } catch (e) {
             console.error('Error syncing with backend:', e.message);

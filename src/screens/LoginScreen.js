@@ -10,10 +10,21 @@ import { useSignIn, useSignUp, useOAuth } from '@clerk/clerk-expo';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
+
+export const useWarmUpBrowser = () => {
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
+    useWarmUpBrowser();
     const insets = useSafeAreaInsets();
     const { API_URL, fetchWithAuth } = useAuth();
     const { isLoaded: signInLoaded, signIn, setActive: setSignInActive } = useSignIn();
@@ -31,13 +42,22 @@ export default function LoginScreen({ navigation }) {
     const onGooglePress = useCallback(async () => {
         setGoogleLoading(true);
         try {
-            const { createdSessionId, setActive } = await startOAuthFlow();
+            const { createdSessionId, setActive } = await startOAuthFlow({
+                redirectUrl: Linking.createURL('/dashboard', { scheme: 'voyago' }),
+            });
             if (createdSessionId) {
                 setActive({ session: createdSessionId });
             }
         } catch (err) {
             console.error(JSON.stringify(err, null, 2));
-            Alert.alert('Google Auth Error', 'Could not complete Google sign in.');
+            if (err.errors?.[0]?.code === 'session_exists') {
+                Alert.alert(
+                    'Already Signed In', 
+                    'You already have an active session! The app just needs a quick restart to sync your data. Please close the Expo Go app completely from your recent apps and open it again.'
+                );
+            } else {
+                Alert.alert('Google Auth Error', 'Could not complete Google sign in.');
+            }
         } finally {
             setGoogleLoading(false);
         }
