@@ -38,6 +38,8 @@ export default function LoginScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [pendingVerification, setPendingVerification] = useState(false);
+    const [code, setCode] = useState('');
 
     const onGooglePress = useCallback(async () => {
         setGoogleLoading(true);
@@ -91,7 +93,7 @@ export default function LoginScreen({ navigation }) {
                 lastName: name.split(' ').slice(1).join(' '),
             });
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-            Alert.alert('Verify Email', 'A code has been sent to your email.');
+            setPendingVerification(true);
         } catch (err) {
             console.error(JSON.stringify(err, null, 2));
             Alert.alert('Signup Error', err.errors ? err.errors[0].message : 'Internal error');
@@ -99,6 +101,26 @@ export default function LoginScreen({ navigation }) {
             setLoading(false);
         }
     }, [signUpLoaded, name, email, password]);
+
+    const onVerifyPress = useCallback(async () => {
+        if (!signUpLoaded) return;
+        setLoading(true);
+        try {
+            const completeSignUp = await signUp.attemptEmailAddressVerification({
+                code,
+            });
+            if (completeSignUp.status === 'complete') {
+                await setSignUpActive({ session: completeSignUp.createdSessionId });
+            } else {
+                console.log(JSON.stringify(completeSignUp, null, 2));
+            }
+        } catch (err) {
+            console.error(JSON.stringify(err, null, 2));
+            Alert.alert('Verification Error', err.errors ? err.errors[0].message : 'Internal error');
+        } finally {
+            setLoading(false);
+        }
+    }, [signUpLoaded, code, setSignUpActive]);
 
     return (
         <KeyboardAvoidingView
@@ -150,7 +172,53 @@ export default function LoginScreen({ navigation }) {
                     </View>
 
                     <View style={styles.form}>
-                        {isSignup && (
+                        {pendingVerification ? (
+                            <>
+                                <Text style={[styles.subtitle, { color: COLORS.primary, marginBottom: 16 }]}>
+                                    Enter the verification code sent to your email.
+                                </Text>
+                                <View style={styles.inputGroup}>
+                                    <Ionicons name="key-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Verification Code"
+                                        placeholderTextColor={COLORS.textMuted}
+                                        value={code}
+                                        onChangeText={setCode}
+                                        keyboardType="number-pad"
+                                    />
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.submitBtn}
+                                    onPress={onVerifyPress}
+                                    disabled={loading}
+                                    activeOpacity={0.8}
+                                >
+                                    <LinearGradient
+                                        colors={['#10B981', '#059669']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.submitBtnGradient}
+                                    >
+                                        {loading ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <Text style={styles.submitBtnText}>
+                                                Verify Email
+                                            </Text>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ marginTop: 16, alignItems: 'center' }}
+                                    onPress={() => setPendingVerification(false)}
+                                >
+                                    <Text style={styles.switchLink}>Back to Sign Up</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                {isSignup && (
                             <View style={styles.inputGroup}>
                                 <Ionicons name="person-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
                                 <TextInput
@@ -213,51 +281,18 @@ export default function LoginScreen({ navigation }) {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <View style={styles.switchContainer}>
-                            <Text style={styles.switchText}>
-                                {isSignup ? 'Already have an account?' : "Don't have an account?"}
-                            </Text>
-                            <TouchableOpacity onPress={() => setIsSignup(!isSignup)}>
-                                <Text style={styles.switchLink}>
-                                    {isSignup ? ' Login' : ' Sign Up'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Dev Login Bypass */}
-                        <View style={styles.devSection}>
-                            <View style={styles.divider}>
-                                <View style={styles.dividerLine} />
-                                <Text style={styles.dividerText}>DEV MODE</Text>
-                                <View style={styles.dividerLine} />
-                            </View>
-                            <TouchableOpacity
-                                style={styles.devBtn}
-                                onPress={async () => {
-                                    setLoading(true);
-                                    try {
-                                        await fetchWithAuth(`${API_URL}/auth/google`, {
-                                            method: 'POST',
-                                            body: JSON.stringify({
-                                                clerkId: 'dev_local_user',
-                                                name: 'Demo User',
-                                                email: 'demo@voyago.dev',
-                                                photoUrl: null,
-                                            }),
-                                        });
-                                        Alert.alert('Dev Login', 'Backend synchronized.');
-                                    } catch (e) {
-                                        Alert.alert('Error', 'Backend unavailable for dev login.');
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                }}
-                                activeOpacity={0.8}
-                            >
-                                <Ionicons name="code-slash-outline" size={18} color={COLORS.accent} style={{ marginRight: 8 }} />
-                                <Text style={styles.devBtnText}>Quick Demo Login</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <View style={styles.switchContainer}>
+                                    <Text style={styles.switchText}>
+                                        {isSignup ? 'Already have an account?' : "Don't have an account?"}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => setIsSignup(!isSignup)}>
+                                        <Text style={styles.switchLink}>
+                                            {isSignup ? ' Login' : ' Sign Up'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
                     </View>
                 </View>
             </ScrollView>
@@ -406,25 +441,5 @@ const styles = StyleSheet.create({
         fontSize: SIZES.fontMd,
         fontWeight: '700',
     },
-    devSection: {
-        marginTop: 24,
-        alignItems: 'center',
-    },
-    devBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(245, 158, 11, 0.08)',
-        borderWidth: 1,
-        borderColor: 'rgba(245, 158, 11, 0.25)',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-        width: '100%',
-    },
-    devBtnText: {
-        color: '#F59E0B',
-        fontWeight: '600',
-        fontSize: 14,
-    },
+
 });

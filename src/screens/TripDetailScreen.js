@@ -80,30 +80,13 @@ export default function TripDetailScreen({ route, navigation }) {
         }
     };
 
-    const handleScanReceipt = async () => {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Sorry, we need camera permissions to scan receipts.');
-            return;
-        }
-
-        let result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [3, 4],
-            quality: 0.5,
-            base64: true,
-        });
-
-        if (!result.canceled && result.assets[0].base64) {
+    const processReceiptResult = async (result) => {
+        if (!result.canceled && result.assets && result.assets[0].base64) {
             setScanning(true);
             try {
                 const parsed = await parseReceipt(result.assets[0].base64);
                 setExpenseDesc(`${parsed.merchant} (Scanned)`);
                 setExpenseAmount(String(parsed.amount));
-                
-                // Note: We don't auto-set isEcoFriendly to true here anymore
-                // because enabling it now requires a proof picture prompt
                 if (parsed.isEcoFriendly) {
                     Alert.alert("Eco Match", "This looks like an eco-friendly purchase! Tap the Eco-Friendly toggle below to upload a proof picture and claim your points.");
                 }
@@ -112,6 +95,64 @@ export default function TripDetailScreen({ route, navigation }) {
             } finally {
                 setScanning(false);
             }
+        }
+    };
+
+    const handleScanReceipt = () => {
+        Alert.alert('Scan Receipt', 'Choose image source', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Take Photo',
+                onPress: async () => {
+                    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                    if (status !== 'granted') return Alert.alert('Permission Denied', 'Camera permissions required.');
+                    let result = await ImagePicker.launchCameraAsync({
+                        mediaTypes: ['images'],
+                        allowsEditing: true,
+                        aspect: [3, 4],
+                        quality: 0.5,
+                        base64: true,
+                    });
+                    processReceiptResult(result);
+                }
+            },
+            {
+                text: 'Choose from Library',
+                onPress: async () => {
+                    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (status !== 'granted') return Alert.alert('Permission Denied', 'Library permissions required.');
+                    let result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ['images'],
+                        allowsEditing: true,
+                        aspect: [3, 4],
+                        quality: 0.5,
+                        base64: true,
+                    });
+                    processReceiptResult(result);
+                }
+            }
+        ]);
+    };
+
+    const processEcoProofResult = async (result) => {
+        if (!result.canceled && result.assets && result.assets[0].base64) {
+            setScanning(true);
+            try {
+                const locPerm = await Location.requestForegroundPermissionsAsync();
+                let loc = null;
+                if (locPerm.status === 'granted') {
+                    loc = await Location.getLastKnownPositionAsync({});
+                    if (!loc) loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
+                }
+                setProofLocation({ latitude: loc?.coords?.latitude || 0, longitude: loc?.coords?.longitude || 0 });
+            } catch (e) {
+                console.log('Location fetch failed, using fallback.');
+                setProofLocation({ latitude: 0, longitude: 0 });
+            }
+            setProofImageBase64(result.assets[0].base64);
+            setProofTime(new Date());
+            setIsEcoFriendly(true);
+            setScanning(false);
         }
     };
 
@@ -124,42 +165,36 @@ export default function TripDetailScreen({ route, navigation }) {
             return;
         }
 
-        Alert.alert('Eco-Proof Required', 'To claim Eco-Points, please take a picture as proof (e.g., transit ticket or receipt).', [
+        Alert.alert('Eco-Proof Required', 'Choose image source for your eco-proof.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Take Picture', onPress: async () => {
-                const camPerm = await ImagePicker.requestCameraPermissionsAsync();
-                const locPerm = await Location.requestForegroundPermissionsAsync();
-                
-                if (camPerm.status !== 'granted' || locPerm.status !== 'granted') {
-                    Alert.alert('Permission Denied', 'Camera and Location permissions are required for eco-proof.');
-                    return;
+            {
+                text: 'Take Photo',
+                onPress: async () => {
+                    const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+                    if (camPerm.status !== 'granted') return Alert.alert('Permission Denied', 'Camera required.');
+                    let result = await ImagePicker.launchCameraAsync({
+                        mediaTypes: ['images'],
+                        allowsEditing: true,
+                        quality: 0.2,
+                        base64: true,
+                    });
+                    processEcoProofResult(result);
                 }
-
-                let result = await ImagePicker.launchCameraAsync({
-                    mediaTypes: ['images'],
-                    allowsEditing: true,
-                    quality: 0.2, // highly compressed for db storage
-                    base64: true,
-                });
-
-                if (!result.canceled && result.assets[0].base64) {
-                    setScanning(true);
-                    try {
-                        let loc = await Location.getLastKnownPositionAsync({});
-                        if (!loc) {
-                            loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
-                        }
-                        setProofLocation({ latitude: loc?.coords?.latitude || 0, longitude: loc?.coords?.longitude || 0 });
-                    } catch (e) {
-                        console.log('Location fetch failed, using fallback.');
-                        setProofLocation({ latitude: 0, longitude: 0 }); // Fallback
-                    }
-                    setProofImageBase64(result.assets[0].base64);
-                    setProofTime(new Date());
-                    setIsEcoFriendly(true);
-                    setScanning(false);
+            },
+            {
+                text: 'Choose from Library',
+                onPress: async () => {
+                    const libPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (libPerm.status !== 'granted') return Alert.alert('Permission Denied', 'Library required.');
+                    let result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ['images'],
+                        allowsEditing: true,
+                        quality: 0.2,
+                        base64: true,
+                    });
+                    processEcoProofResult(result);
                 }
-            }}
+            }
         ]);
     };
 

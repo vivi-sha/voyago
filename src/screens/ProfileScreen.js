@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-    View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Animated
+    View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Animated, Modal, TextInput, ActivityIndicator, Alert
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -13,7 +14,7 @@ import DailyChallengeCard from '../components/DailyChallengeCard';
 
 export default function ProfileScreen({ navigation }) {
     const insets = useSafeAreaInsets();
-    const { user, clerkUser, logout, refreshUser } = useAuth();
+    const { user, clerkUser, logout, refreshUser, fetchWithAuth, API_URL } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const profileName = user?.name || clerkUser?.fullName || clerkUser?.firstName || 'Traveler';
@@ -29,6 +30,55 @@ export default function ProfileScreen({ navigation }) {
     useEffect(() => {
         Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     }, []);
+
+    const [showEditProfile, setShowEditProfile] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editPhotoUrl, setEditPhotoUrl] = useState(null);
+    const [savingProfile, setSavingProfile] = useState(false);
+
+    const openEditProfile = () => {
+        setEditName(profileName);
+        setEditPhotoUrl(profilePhoto);
+        setShowEditProfile(true);
+    };
+
+    const handlePickProfileImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return Alert.alert('Permission Denied', 'Library access is needed.');
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.2,
+            base64: true,
+        });
+        if (!result.canceled && result.assets[0].base64) {
+            setEditPhotoUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        if (!editName.trim()) return Alert.alert('Error', 'Name cannot be empty.');
+        setSavingProfile(true);
+        try {
+            const userId = user?._id || user?.id;
+            const res = await fetchWithAuth(`${API_URL}/users/${userId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name: editName, photoUrl: editPhotoUrl })
+            });
+            if (res.ok) {
+                await refreshUser();
+                setShowEditProfile(false);
+                triggerCelebration();
+            } else {
+                Alert.alert('Error', 'Failed to update profile');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'An error occurred');
+        } finally {
+            setSavingProfile(false);
+        }
+    };
 
     const ecoPoints = user?.ecoPoints || 0;
     const donatedPoints = user?.donatedPoints || 0;
@@ -70,7 +120,7 @@ export default function ProfileScreen({ navigation }) {
                     </View>
 
                     <Animated.View style={[styles.profileCard, { opacity: fadeAnim }]}>
-                        <View style={styles.avatarSection}>
+                        <TouchableOpacity style={styles.avatarSection} onPress={openEditProfile} activeOpacity={0.8}>
                             {profilePhoto ? (
                                 <Image source={{ uri: profilePhoto }} style={styles.avatar} />
                             ) : (
@@ -84,8 +134,14 @@ export default function ProfileScreen({ navigation }) {
                                 </LinearGradient>
                             )}
                             <View style={styles.onlineDot} />
-                        </View>
-                        <Text style={styles.userName}>{profileName}</Text>
+                            <View style={styles.editAvatarBadge}>
+                                <Ionicons name="pencil" size={14} color="#fff" />
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={openEditProfile} style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
+                            <Text style={styles.userName} style={{ fontSize: 22, fontWeight: '800', color: COLORS.text }}>{profileName}</Text>
+                            <Ionicons name="pencil" size={16} color={COLORS.textSecondary} style={{marginLeft: 8}} />
+                        </TouchableOpacity>
                         <Text style={styles.userEmail}>{profileEmail}</Text>
 
                         {/* Eco Points Badge */}
@@ -183,6 +239,56 @@ export default function ProfileScreen({ navigation }) {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {/* Edit Profile Modal */}
+            <Modal visible={showEditProfile} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Profile</Text>
+                            <TouchableOpacity onPress={() => setShowEditProfile(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <View style={{alignItems: 'center', marginVertical: 20}}>
+                            <TouchableOpacity onPress={handlePickProfileImage}>
+                                {editPhotoUrl ? (
+                                    <Image source={{uri: editPhotoUrl}} style={{width: 100, height: 100, borderRadius: 50}} />
+                                ) : (
+                                    <View style={{width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center'}}>
+                                        <Ionicons name="camera" size={32} color={COLORS.textSecondary} />
+                                    </View>
+                                )}
+                                <View style={{position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 15, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.backgroundCard}}>
+                                    <Ionicons name="pencil" size={14} color="#fff" />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={{color: COLORS.textSecondary, marginBottom: 8}}>Name</Text>
+                        <TextInput
+                            style={{backgroundColor: 'rgba(255,255,255,0.05)', color: COLORS.text, padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: COLORS.border}}
+                            value={editName}
+                            onChangeText={setEditName}
+                            placeholder="Your Name"
+                            placeholderTextColor={COLORS.textMuted}
+                        />
+
+                        <TouchableOpacity 
+                            style={{backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center'}} 
+                            onPress={handleSaveProfile}
+                            disabled={savingProfile}
+                        >
+                            {savingProfile ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={{color: '#fff', fontSize: 16, fontWeight: '700'}}>Save Changes</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -252,6 +358,19 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.primary,
         borderWidth: 3,
         borderColor: COLORS.background,
+    },
+    editAvatarBadge: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        backgroundColor: COLORS.primary,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: COLORS.backgroundCard,
     },
     userName: {
         fontSize: 22,
@@ -405,6 +524,30 @@ const styles = StyleSheet.create({
     menuLabel: {
         fontSize: SIZES.fontMd,
         fontWeight: '600',
+        color: COLORS.text,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: COLORS.backgroundCard,
+        borderRadius: SIZES.radiusLg,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: COLORS.glassStroke,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: SIZES.fontLg,
+        fontWeight: '700',
         color: COLORS.text,
     },
 });

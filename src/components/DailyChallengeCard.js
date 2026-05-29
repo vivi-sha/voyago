@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,9 +18,11 @@ export default function DailyChallengeCard({ user, refreshUser }) {
     
     const todayStr = new Date().toDateString();
 
-    useEffect(() => {
-        loadChallenge();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadChallenge();
+        }, [])
+    );
 
     const loadChallenge = async () => {
         const currentChallenge = getDailyChallenge();

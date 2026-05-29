@@ -148,6 +148,33 @@ app.get('/api/users/:id', async (req, res) => {
     }
 });
 
+// Update User Profile
+app.put('/api/users/:id', async (req, res) => {
+    await connectDB();
+    try {
+        const { name, photoUrl } = req.body;
+        let query = { clerkId: req.params.id };
+        if (mongoose.isValidObjectId(req.params.id)) {
+            query = { $or: [{ _id: req.params.id }, { clerkId: req.params.id }] };
+        }
+        
+        let updateData = {};
+        if (name) updateData.name = name;
+        if (photoUrl) updateData.photoUrl = photoUrl;
+
+        const user = await User.findOneAndUpdate(
+            query,
+            { $set: updateData },
+            { new: true }
+        );
+        
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get Leaderboard
 app.get('/api/users', async (req, res) => {
     await connectDB();
@@ -172,6 +199,33 @@ app.post('/api/users/:id/add-points', async (req, res) => {
         );
         if (!user) return res.status(404).json({ message: 'User not found' });
         res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Redeem Points
+app.post('/api/users/:id/redeem', async (req, res) => {
+    await connectDB();
+    try {
+        const { points, isDonation } = req.body;
+        const query = { $or: [{ clerkId: req.params.id }, { _id: req.params.id }] };
+        
+        const user = await User.findOne(query);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        
+        if (user.ecoPoints < points) {
+            return res.status(400).json({ message: 'Insufficient points' });
+        }
+        
+        let update = { $inc: { ecoPoints: -points } };
+        if (isDonation) {
+            update.$inc.donatedPoints = points;
+        }
+
+        const updatedUser = await User.findOneAndUpdate(query, update, { new: true });
+        res.json(updatedUser);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -345,10 +399,20 @@ app.post('/api/expenses', async (req, res) => {
         
         // Award Eco Points to all participants if applicable
         if (expense.isEcoFriendly && expense.splitWith && expense.splitWith.length > 0) {
-            await User.updateMany(
-                { _id: { $in: expense.splitWith } },
-                { $inc: { ecoPoints: 15 } }
-            );
+            const objectIds = expense.splitWith.filter(id => mongoose.isValidObjectId(id));
+            const stringIds = expense.splitWith.filter(id => !mongoose.isValidObjectId(id) && typeof id === 'string');
+            
+            const query = [];
+            if (objectIds.length > 0) query.push({ _id: { $in: objectIds } });
+            // Also check objectIds against clerkId just in case some are stored as strings that look like objectIds
+            query.push({ clerkId: { $in: expense.splitWith } });
+
+            if (query.length > 0) {
+                await User.updateMany(
+                    { $or: query },
+                    { $inc: { ecoPoints: 15 } }
+                );
+            }
         }
         res.json(expense);
     } catch (error) {

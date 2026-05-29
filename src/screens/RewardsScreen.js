@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    Animated, Dimensions
+    Animated, Dimensions, Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,52 +14,51 @@ const { width } = Dimensions.get('window');
 
 const NGOS = [
     {
-        name: 'Sankalp Taru Foundation',
-        desc: 'Plant an environmental tree in your name to combat climate change.',
+        name: 'Plant 1 Tree',
+        desc: 'Voyago donates $1 to One Tree Planted to plant a tree in a developing region.',
         points: 150,
         color: '#10B981',
         icon: 'leaf',
+        explanation: "By spending 150 points, Voyago takes $1 of the affiliate revenue generated from your app usage and donates it to One Tree Planted, an API-integrated nonprofit that plants a tree for exactly $1."
     },
     {
-        name: 'Give India',
-        desc: 'Support vulnerable communities with your points for sustainable living.',
-        points: 250,
+        name: 'Ocean Cleanup',
+        desc: 'Voyago donates $2 to extract 1kg of plastic from the ocean.',
+        points: 300,
         color: '#3B82F6',
-        icon: 'heart',
+        icon: 'water',
+        explanation: "By spending 300 points, Voyago donates $2 from its affiliate revenue to organizations like The Ocean Trust. It costs approximately $2 to remove 1kg of plastic from the ocean."
     },
     {
-        name: 'Say Trees',
-        desc: 'Help create urban forests to improve air quality in cities.',
-        points: 350,
-        color: '#10B981',
-        icon: 'flower',
+        name: 'Protect 1 Acre of Rainforest',
+        desc: 'Voyago donates $3 to Rainforest Trust to protect 1 acre of land.',
+        points: 450,
+        color: '#F59E0B',
+        icon: 'earth',
+        explanation: "By spending 450 points, Voyago donates $3 to the Rainforest Trust. Because of their scale, it only costs around $3 on average to legally protect one acre of vulnerable rainforest."
     },
 ];
 
 const PASSES = [
     {
-        name: 'Eco Pass Weekly',
-        desc: 'Get access to eco-friendly transport discounts for a week.',
+        name: '5% Transit Cashback',
+        desc: 'Get 5% cashback on public transit bookings via our partners.',
         points: 100,
         color: '#EC4899',
+        explanation: "By spending 100 points, you get a 5% cashback link. This works because Voyago receives an 8% commission from our public transit affiliates, and we pass 5% back to you!"
     },
     {
-        name: 'Green Stay Badge',
-        desc: 'Unlock exclusive status at eco-hotels and homestays.',
-        points: 300,
+        name: 'Eco-Hotel Discount',
+        desc: 'Unlock a $10 discount code for certified green stays.',
+        points: 250,
         color: '#8B5CF6',
-    },
-    {
-        name: 'Sustainable Explorer',
-        desc: 'Full access to premium eco-travel guides and tools.',
-        points: 500,
-        color: '#F59E0B',
+        explanation: "By spending 250 points, you get a $10 discount code. Voyago partners with sustainable hotel networks that provide us with bulk discount codes in exchange for referring eco-conscious travelers like you."
     },
 ];
 
 export default function RewardsScreen({ navigation }) {
     const insets = useSafeAreaInsets();
-    const { user } = useAuth();
+    const { user, refreshUser, API_URL, fetchWithAuth } = useAuth();
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -68,10 +67,40 @@ export default function RewardsScreen({ navigation }) {
 
     const ecoPoints = user?.ecoPoints || 0;
 
-    const handleDonate = (ngo) => {
-        if (ecoPoints >= ngo.points) {
-            triggerCelebration();
-            playEcoChime();
+    const processRedemption = async (item, isDonation) => {
+        try {
+            const userId = user?._id || user?.id;
+            const res = await fetchWithAuth(`${API_URL}/users/${userId}/redeem`, {
+                method: 'POST',
+                body: JSON.stringify({ points: item.points, isDonation })
+            });
+            
+            if (res.ok) {
+                await refreshUser();
+                triggerCelebration();
+                playEcoChime();
+                Alert.alert('Reward Redeemed! 🎉', item.explanation, [{ text: 'Awesome!' }]);
+            } else {
+                const errorData = await res.json();
+                Alert.alert('Error', errorData.message || 'Failed to redeem points.');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'An error occurred while redeeming points.');
+        }
+    };
+
+    const handleRedeem = (item, isDonation) => {
+        if (ecoPoints >= item.points) {
+            Alert.alert(
+                'Confirm Redemption',
+                `Are you sure you want to spend ${item.points} points on "${item.name}"?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Confirm', onPress: () => processRedemption(item, isDonation) }
+                ]
+            );
+        } else {
+            Alert.alert('Keep going!', `You need ${item.points - ecoPoints} more points to unlock this.`);
         }
     };
 
@@ -115,9 +144,9 @@ export default function RewardsScreen({ navigation }) {
                                         <Text style={[styles.priceTag, { color: ngo.color }]}>{ngo.points} Pts</Text>
                                         <TouchableOpacity 
                                             style={[styles.redeemBtn, { backgroundColor: ecoPoints >= ngo.points ? COLORS.primary : COLORS.border }]}
-                                            onPress={() => handleDonate(ngo)}
+                                            onPress={() => handleRedeem(ngo, true)}
                                         >
-                                            <Text style={styles.redeemBtnText}>Donate</Text>
+                                            <Text style={styles.redeemBtnText}>Redeem</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -138,7 +167,10 @@ export default function RewardsScreen({ navigation }) {
                                     <Text style={styles.passName}>{pass.name}</Text>
                                     <Text style={styles.passPoints}>{pass.points} Pts</Text>
                                     <Text style={styles.passDesc} numberOfLines={2}>{pass.desc}</Text>
-                                    <TouchableOpacity style={[styles.passBtn, { backgroundColor: pass.color }]}>
+                                    <TouchableOpacity 
+                                        style={[styles.passBtn, { backgroundColor: ecoPoints >= pass.points ? pass.color : COLORS.border }]}
+                                        onPress={() => handleRedeem(pass, false)}
+                                    >
                                         <Text style={styles.passBtnText}>Redeem</Text>
                                     </TouchableOpacity>
                                 </LinearGradient>

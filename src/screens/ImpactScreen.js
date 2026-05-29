@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-    View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator, Dimensions
+    View, Text, StyleSheet, ScrollView, Animated, ActivityIndicator, Dimensions, TouchableOpacity
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ export default function ImpactScreen({ navigation }) {
     const insets = useSafeAreaInsets();
     const { user, refreshUser, API_URL, fetchWithAuth } = useAuth();
     const [activities, setActivities] = useState([]);
+    const [monthlyData, setMonthlyData] = useState([]);
     const [loading, setLoading] = useState(true);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -98,6 +99,28 @@ export default function ImpactScreen({ navigation }) {
                 
                 // Add dummy daily challenge if points are high just to show history (Optional)
                 setActivities(ecoActivities);
+
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const last6Months = [];
+                const now = new Date();
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    last6Months.push({
+                        month: monthNames[d.getMonth()],
+                        year: d.getFullYear(),
+                        value: 0
+                    });
+                }
+
+                ecoActivities.forEach(act => {
+                    const actDate = new Date(act.date);
+                    const target = last6Months.find(m => m.month === monthNames[actDate.getMonth()] && m.year === actDate.getFullYear());
+                    if (target) {
+                        target.value += act.points;
+                    }
+                });
+
+                setMonthlyData(last6Months);
             }
         } catch (e) {
             console.error('Failed to fetch activities:', e);
@@ -113,15 +136,7 @@ export default function ImpactScreen({ navigation }) {
         { value: `${Math.floor(ecoPoints / 100)}`, label: 'Trees Planted', icon: 'flower', color: '#EC4899' },
     ];
 
-    const monthlyData = [
-        { month: 'Jan', value: 20 },
-        { month: 'Feb', value: 35 },
-        { month: 'Mar', value: 45 },
-        { month: 'Apr', value: 60 },
-        { month: 'May', value: 40 },
-        { month: 'Jun', value: 75 },
-    ];
-    const maxValue = Math.max(...monthlyData.map(d => d.value), 1);
+    const maxValue = Math.max(...monthlyData.map(d => d.value), 100);
 
     const formatDate = (dateStr) => {
         const d = new Date(dateStr);
@@ -184,7 +199,12 @@ export default function ImpactScreen({ navigation }) {
                     <View style={styles.chartCard}>
                         <View style={styles.chartContainer}>
                             {monthlyData.map((d, i) => (
-                                <View key={i} style={styles.chartBarGroup}>
+                                <TouchableOpacity 
+                                    key={i} 
+                                    style={styles.chartBarGroup}
+                                    onPress={() => alert(`You earned ${d.value} Eco Points in ${d.month}.`)}
+                                    activeOpacity={0.7}
+                                >
                                     <View style={styles.chartBarBg}>
                                         <LinearGradient
                                             colors={['#10B981', '#059669']}
@@ -194,7 +214,7 @@ export default function ImpactScreen({ navigation }) {
                                         />
                                     </View>
                                     <Text style={styles.chartLabel}>{d.month}</Text>
-                                </View>
+                                </TouchableOpacity>
                             ))}
                         </View>
                     </View>
