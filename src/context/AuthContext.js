@@ -13,8 +13,8 @@ const PRODUCTION_URL = 'https://ecoshare-eight.vercel.app/api';
 // const LOCAL_URL = `http://${LOCAL_IP}:5000/api`;
 
 const getApiUrl = () => {
-    // Use local backend for Expo development
-    return `http://192.168.31.52:5000/api`;
+    // Return production URL so anyone in the world can use it!
+    return PRODUCTION_URL;
 };
 
 const API_URL = getApiUrl();

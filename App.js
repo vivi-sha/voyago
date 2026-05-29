@@ -53,10 +53,10 @@ const tokenCache = {
   },
 };
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_c3F1YXJlLXNjb3JwaW9uLTMzLmNsZXJrLmFjY291bnRzLmRldiQ';
 
 if (!publishableKey) {
-  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env');
+  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
 }
 
 // Bottom Tab Navigator for Authenticated Users
