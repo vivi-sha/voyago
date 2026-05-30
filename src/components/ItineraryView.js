@@ -19,6 +19,10 @@ export default function ItineraryView({ tripId, members }) {
     const [itemType, setItemType] = useState('note'); // 'note' | 'place' | 'poll'
     const [content, setContent] = useState('');
     const [pollOptions, setPollOptions] = useState(['', '']);
+    
+    // Edit state
+    const [editingItemId, setEditingItemId] = useState(null);
+    const [editContent, setEditContent] = useState('');
 
     useEffect(() => {
         fetchItinerary();
@@ -93,6 +97,24 @@ export default function ItineraryView({ tripId, members }) {
         ]);
     };
 
+    const handleEditItem = async (itemId) => {
+        if (!editContent.trim()) return Alert.alert('Error', 'Content cannot be empty');
+        
+        try {
+            const res = await fetchWithAuth(`${API_URL}/itinerary/${itemId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ userId: user._id || user.id, content: editContent })
+            });
+            if (res.ok) {
+                setEditingItemId(null);
+                setEditContent('');
+                fetchItinerary();
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to edit item');
+        }
+    };
+
     const handleVote = async (itemId, optionIndex) => {
         try {
             const res = await fetchWithAuth(`${API_URL}/itinerary/${itemId}/vote`, {
@@ -151,18 +173,48 @@ export default function ItineraryView({ tripId, members }) {
                                     </View>
                                 </View>
                                 {isCreator && (
-                                    <TouchableOpacity onPress={() => handleDeleteItem(item._id || item.id)}>
-                                        <Ionicons name="trash-outline" size={18} color={COLORS.error} />
-                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                                        {item.type !== 'poll' && (
+                                            <TouchableOpacity onPress={() => {
+                                                setEditingItemId(item._id || item.id);
+                                                setEditContent(item.content);
+                                            }}>
+                                                <Ionicons name="pencil-outline" size={18} color={COLORS.primary} />
+                                            </TouchableOpacity>
+                                        )}
+                                        <TouchableOpacity onPress={() => handleDeleteItem(item._id || item.id)}>
+                                            <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                                        </TouchableOpacity>
+                                    </View>
                                 )}
                             </View>
 
-                            <View style={styles.contentBox}>
-                                {item.type === 'place' && <Ionicons name="location" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />}
-                                {item.type === 'note' && <Ionicons name="document-text" size={20} color={COLORS.secondary} style={{ marginRight: 8 }} />}
-                                {item.type === 'poll' && <Ionicons name="stats-chart" size={20} color="#F59E0B" style={{ marginRight: 8 }} />}
-                                <Text style={styles.contentText}>{item.content}</Text>
-                            </View>
+                            {editingItemId === (item._id || item.id) ? (
+                                <View style={{ marginTop: 8 }}>
+                                    <TextInput
+                                        style={styles.editInput}
+                                        value={editContent}
+                                        onChangeText={setEditContent}
+                                        multiline
+                                        autoFocus
+                                    />
+                                    <View style={styles.editActions}>
+                                        <TouchableOpacity onPress={() => setEditingItemId(null)} style={styles.cancelEditBtn}>
+                                            <Text style={styles.cancelEditText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleEditItem(item._id || item.id)} style={styles.saveEditBtn}>
+                                            <Text style={styles.saveEditText}>Save</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ) : (
+                                <View style={styles.contentBox}>
+                                    {item.type === 'place' && <Ionicons name="location" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />}
+                                    {item.type === 'note' && <Ionicons name="document-text" size={20} color={COLORS.secondary} style={{ marginRight: 8 }} />}
+                                    {item.type === 'poll' && <Ionicons name="stats-chart" size={20} color="#F59E0B" style={{ marginRight: 8 }} />}
+                                    <Text style={styles.contentText}>{item.content}</Text>
+                                </View>
+                            )}
 
                             {item.type === 'poll' && (
                                 <View style={styles.pollContainer}>
@@ -488,5 +540,38 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    editInput: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 8,
+        padding: 12,
+        color: '#fff',
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: COLORS.primary,
+        marginBottom: 8,
+    },
+    editActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+    },
+    cancelEditBtn: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+    },
+    cancelEditText: {
+        color: COLORS.textMuted,
+        fontWeight: '600',
+    },
+    saveEditBtn: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 6,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+    },
+    saveEditText: {
+        color: '#fff',
+        fontWeight: '600',
     },
 });

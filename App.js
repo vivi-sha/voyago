@@ -69,9 +69,9 @@ function AuthenticatedTabs() {
         tabBarStyle: {
           backgroundColor: '#0F172A',
           borderTopColor: 'rgba(255,255,255,0.05)',
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 70,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
@@ -85,6 +85,7 @@ function AuthenticatedTabs() {
           else if (route.name === 'TripsTab') iconName = focused ? 'map' : 'map-outline';
           else if (route.name === 'ImpactTab') iconName = focused ? 'leaf' : 'leaf-outline';
           else if (route.name === 'LeaderboardTab') iconName = focused ? 'trophy' : 'trophy-outline';
+          else if (route.name === 'RewardsTab') iconName = focused ? 'gift' : 'gift-outline';
           return <Ionicons name={iconName} size={22} color={color} />;
         },
       })}
@@ -93,6 +94,7 @@ function AuthenticatedTabs() {
       <Tab.Screen name="TripsTab" component={TripsScreen} options={{ tabBarLabel: 'Trips' }} />
       <Tab.Screen name="ImpactTab" component={ImpactScreen} options={{ tabBarLabel: 'Impact' }} />
       <Tab.Screen name="LeaderboardTab" component={LeaderboardScreen} options={{ tabBarLabel: 'Leaders' }} />
+      <Tab.Screen name="RewardsTab" component={RewardsScreen} options={{ tabBarLabel: 'Rewards' }} />
     </Tab.Navigator>
   );
 }

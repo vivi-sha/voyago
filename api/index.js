@@ -307,7 +307,7 @@ app.get('/api/trips/:id', async (req, res) => {
 });
 
 // Deep Link Redirect for WhatsApp
-app.get('/api/join/:code', (req, res) => {
+app.get(['/api/join/:code', '/join/:code'], (req, res) => {
     const code = req.params.code;
     const redirectUrl = req.query.redirect;
     if (redirectUrl) {
@@ -535,6 +535,28 @@ app.delete('/api/itinerary/:itemId', async (req, res) => {
         res.json({ message: 'Item deleted' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/itinerary/:itemId', async (req, res) => {
+    await connectDB();
+    try {
+        const { userId, content } = req.body;
+        const query = { $or: [{ _id: req.params.itemId }, { id: req.params.itemId }] };
+        const item = await ItineraryItem.findOne(query);
+
+        if (!item) return res.status(404).json({ error: 'Item not found' });
+        
+        // Only creator can edit
+        if (String(item.creatorId) !== String(userId)) {
+            return res.status(403).json({ error: 'Not authorized to edit' });
+        }
+
+        item.content = content;
+        await item.save();
+        res.json(item);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
