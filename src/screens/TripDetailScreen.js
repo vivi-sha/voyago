@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, ActivityIndicator, Modal, Share, Image
+    TextInput, Alert, ActivityIndicator, Modal, Share, Image,
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -468,517 +469,519 @@ export default function TripDetailScreen({ route, navigation }) {
     const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
     return (
-        <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                {/* Header */}
-                <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
-                    <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
-                    </TouchableOpacity>
-                    <View style={{ position: 'absolute', top: insets.top + 16, right: 16, zIndex: 10 }}>
-                        <TouchableOpacity onPress={() => setShowOptionsModal(true)} style={{ padding: 8 }}>
-                            <Ionicons name="ellipsis-vertical" size={24} color={COLORS.textSecondary} />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.container}>
+                <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                    {/* Header */}
+                    <LinearGradient colors={['#0F172A', '#1a2942']} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+                        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                            <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
                         </TouchableOpacity>
-                    </View>
-                    <Text style={styles.tripName}>{trip?.name || 'Trip'}</Text>
-                    <View style={styles.tripMeta}>
-                        <Ionicons name="location" size={16} color={COLORS.primary} />
-                        <Text style={styles.tripDest}>{trip?.destination}</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.shareBtn} onPress={shareTrip}>
-                        <Ionicons name="share-social-outline" size={18} color={COLORS.primary} />
-                        <Text style={styles.shareBtnText}>Invite Friends • #{trip?.shareCode}</Text>
-                    </TouchableOpacity>
-                </LinearGradient>
-
-                {/* Stats Cards */}
-                <View style={styles.statsRow}>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statLabel}>Total Cost</Text>
-                        <Text style={styles.statValue}>₹{totalExpenses.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statLabel}>You Paid</Text>
-                        <Text style={[styles.statValue, { color: COLORS.primary }]}>
-                            ₹{youPaid.toFixed(2)}
-                        </Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statLabel}>Members</Text>
-                        <Text style={styles.statValue}>{members.length}</Text>
-                    </View>
-                </View>
-
-                {/* Tab Toggle */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, activeTab === 'expenses' && styles.tabBtnActive]} 
-                        onPress={() => setActiveTab('expenses')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[styles.tabBtnText, activeTab === 'expenses' && styles.tabBtnTextActive]}>🧾 Expenses</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, activeTab === 'itinerary' && styles.tabBtnActive]} 
-                        onPress={() => setActiveTab('itinerary')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[styles.tabBtnText, activeTab === 'itinerary' && styles.tabBtnTextActive]}>🗺️ Itinerary</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {activeTab === 'expenses' ? (
-                    <>
-                        {/* Members */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Members</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={styles.membersRow}>
-                            {members.map((m, i) => (
-                                <View key={i} style={styles.memberChip}>
-                                    <LinearGradient
-                                        colors={i === 0 ? ['#10B981', '#059669'] : ['#3B82F6', '#2563EB']}
-                                        style={styles.memberAvatar}
-                                    >
-                                        <Text style={styles.memberAvatarText}>
-                                            {m.name?.charAt(0)?.toUpperCase() || '?'}
-                                        </Text>
-                                    </LinearGradient>
-                                    <Text style={styles.memberName} numberOfLines={1}>
-                                        {String(m._id || m.id) === String(userId) ? 'You' : m.name}
-                                    </Text>
-                                </View>
-                            ))}
+                        <View style={{ position: 'absolute', top: insets.top + 16, right: 16, zIndex: 10 }}>
+                            <TouchableOpacity onPress={() => setShowOptionsModal(true)} style={{ padding: 8 }}>
+                                <Ionicons name="ellipsis-vertical" size={24} color={COLORS.textSecondary} />
+                            </TouchableOpacity>
                         </View>
-                    </ScrollView>
-                </View>
+                        <Text style={styles.tripName}>{trip?.name || 'Trip'}</Text>
+                        <View style={styles.tripMeta}>
+                            <Ionicons name="location" size={16} color={COLORS.primary} />
+                            <Text style={styles.tripDest}>{trip?.destination}</Text>
+                        </View>
 
-                {/* Eco-Hotspot Map */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tourist Attractions 🗺️</Text>
-                    <EcoMap destination={trip.destination} />
-                </View>
+                        <TouchableOpacity style={styles.shareBtn} onPress={shareTrip}>
+                            <Ionicons name="share-social-outline" size={18} color={COLORS.primary} />
+                            <Text style={styles.shareBtnText}>Invite Friends • #{trip?.shareCode}</Text>
+                        </TouchableOpacity>
+                    </LinearGradient>
 
-                {/* Expenses */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Expenses</Text>
-                        <TouchableOpacity
-                            onPress={openAddExpense}
-                            style={styles.addExpBtn}
+                    {/* Stats Cards */}
+                    <View style={styles.statsRow}>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>Total Cost</Text>
+                            <Text style={styles.statValue}>₹{totalExpenses.toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>You Paid</Text>
+                            <Text style={[styles.statValue, { color: COLORS.primary }]}>
+                                ₹{youPaid.toFixed(2)}
+                            </Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>Members</Text>
+                            <Text style={styles.statValue}>{members.length}</Text>
+                        </View>
+                    </View>
+
+                    {/* Tab Toggle */}
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity 
+                            style={[styles.tabBtn, activeTab === 'expenses' && styles.tabBtnActive]} 
+                            onPress={() => setActiveTab('expenses')}
                             activeOpacity={0.8}
                         >
-                            <Ionicons name="add" size={18} color="#fff" />
-                            <Text style={styles.addExpBtnText}>Add</Text>
+                            <Text style={[styles.tabBtnText, activeTab === 'expenses' && styles.tabBtnTextActive]}>🧾 Expenses</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={[styles.tabBtn, activeTab === 'itinerary' && styles.tabBtnActive]} 
+                            onPress={() => setActiveTab('itinerary')}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.tabBtnText, activeTab === 'itinerary' && styles.tabBtnTextActive]}>🗺️ Itinerary</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {expenses.length === 0 ? (
-                        <View style={styles.emptyExpenses}>
-                            <Text style={{ fontSize: 36 }}>🧾</Text>
-                            <Text style={styles.emptyText}>No expenses yet</Text>
-                        </View>
-                    ) : (
-                        expenses.map((exp, i) => {
-                            const expId = exp._id || exp.id || i;
-                            const payer = members.find(m => String(m._id || m.id) === String(exp.payerId));
-                            return (
-                                <View key={expId} style={styles.expenseCard}>
-                                    <View style={styles.expenseIcon}>
-                                        <Text style={{ fontSize: 20 }}>
-                                            {exp.isEcoFriendly ? '🌱' : '🧾'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.expenseInfo}>
-                                        <Text style={styles.expenseDesc}>{exp.description}</Text>
-                                        <Text style={styles.expensePayer}>
-                                            Paid by {String(payer?._id || payer?.id) === String(userId) ? 'You' : payer?.name || 'Unknown'}
-                                        </Text>
-                                        <Text style={styles.expenseSplitInfo}>
-                                            Split with {exp.splitWith?.length || members.length} people
-                                        </Text>
-                                    </View>
-                                    <View style={styles.expenseAmountBox}>
-                                        <Text style={styles.expenseAmount}>₹{exp.amount}</Text>
-                                        {exp.isEcoFriendly && (
-                                            <View style={styles.ecoBadge}>
-                                                <Text style={styles.ecoBadgeText}>Eco</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                    <View style={styles.expenseActions}>
-                                        {exp.isEcoFriendly && exp.proofImageBase64 && (
-                                            <TouchableOpacity onPress={() => {
-                                                setSelectedProofExpense(exp);
-                                                setShowProofModal(true);
-                                            }} style={styles.expActionBtn}>
-                                                <Ionicons name="eye" size={16} color="#10B981" />
-                                            </TouchableOpacity>
-                                        )}
-                                        <TouchableOpacity onPress={() => openEditExpense(exp)} style={styles.expActionBtn}>
-                                            <Ionicons name="pencil" size={16} color={COLORS.primary} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => deleteExpense(expId)} style={styles.expActionBtn}>
-                                            <Ionicons name="trash" size={16} color={COLORS.error} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            );
-                        })
-                    )}
-                </View>
-
-                {/* Settlement Info */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>How to Settle Up 💸</Text>
-                    <View style={styles.settlementCard}>
-                        {settlements.length > 0 ? (
-                            settlements.map((s, i) => {
-                                const fromMember = members.find(m => String(m._id || m.id) === String(s.from));
-                                const toMember = members.find(m => String(m._id || m.id) === String(s.to));
-                                const fromName = String(s.from) === String(userId) ? 'You' : fromMember?.name;
-                                const toName = String(s.to) === String(userId) ? 'You' : toMember?.name;
-                                
-                                return (
-                                    <View key={i} style={[styles.settlementRow, { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Ionicons name="wallet" size={20} color={COLORS.primary} />
-                                            </View>
-                                            <View>
-                                                <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
-                                                    <Text style={{ color: COLORS.text, fontWeight: '700' }}>{fromName}</Text> needs to pay
-                                                </Text>
-                                                <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '800', marginTop: 2 }}>
-                                                    {toName}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <View style={{ alignItems: 'flex-end' }}>
-                                            <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '800' }}>
-                                                ₹{s.amount.toFixed(2)}
+                    {activeTab === 'expenses' ? (
+                        <>
+                            {/* Members */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Members</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <View style={styles.membersRow}>
+                                {members.map((m, i) => (
+                                    <View key={i} style={styles.memberChip}>
+                                        <LinearGradient
+                                            colors={i === 0 ? ['#10B981', '#059669'] : ['#3B82F6', '#2563EB']}
+                                            style={styles.memberAvatar}
+                                        >
+                                            <Text style={styles.memberAvatarText}>
+                                                {m.name?.charAt(0)?.toUpperCase() || '?'}
                                             </Text>
-                                            {String(s.from) === String(userId) && (
-                                                <TouchableOpacity style={{ marginTop: 8, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
-                                                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Pay Now</Text>
+                                        </LinearGradient>
+                                        <Text style={styles.memberName} numberOfLines={1}>
+                                            {String(m._id || m.id) === String(userId) ? 'You' : m.name}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </View>
+
+                    {/* Eco-Hotspot Map */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Tourist Attractions 🗺️</Text>
+                        <EcoMap destination={trip.destination} />
+                    </View>
+
+                    {/* Expenses */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Expenses</Text>
+                            <TouchableOpacity
+                                onPress={openAddExpense}
+                                style={styles.addExpBtn}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="add" size={18} color="#fff" />
+                                <Text style={styles.addExpBtnText}>Add</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {expenses.length === 0 ? (
+                            <View style={styles.emptyExpenses}>
+                                <Text style={{ fontSize: 36 }}>🧾</Text>
+                                <Text style={styles.emptyText}>No expenses yet</Text>
+                            </View>
+                        ) : (
+                            expenses.map((exp, i) => {
+                                const expId = exp._id || exp.id || i;
+                                const payer = members.find(m => String(m._id || m.id) === String(exp.payerId));
+                                return (
+                                    <View key={expId} style={styles.expenseCard}>
+                                        <View style={styles.expenseIcon}>
+                                            <Text style={{ fontSize: 20 }}>
+                                                {exp.isEcoFriendly ? '🌱' : '🧾'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.expenseInfo}>
+                                            <Text style={styles.expenseDesc}>{exp.description}</Text>
+                                            <Text style={styles.expensePayer}>
+                                                Paid by {String(payer?._id || payer?.id) === String(userId) ? 'You' : payer?.name || 'Unknown'}
+                                            </Text>
+                                            <Text style={styles.expenseSplitInfo}>
+                                                Split with {exp.splitWith?.length || members.length} people
+                                            </Text>
+                                        </View>
+                                        <View style={styles.expenseAmountBox}>
+                                            <Text style={styles.expenseAmount}>₹{exp.amount}</Text>
+                                            {exp.isEcoFriendly && (
+                                                <View style={styles.ecoBadge}>
+                                                    <Text style={styles.ecoBadgeText}>Eco</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <View style={styles.expenseActions}>
+                                            {exp.isEcoFriendly && exp.proofImageBase64 && (
+                                                <TouchableOpacity onPress={() => {
+                                                    setSelectedProofExpense(exp);
+                                                    setShowProofModal(true);
+                                                }} style={styles.expActionBtn}>
+                                                    <Ionicons name="eye" size={16} color="#10B981" />
                                                 </TouchableOpacity>
                                             )}
+                                            <TouchableOpacity onPress={() => openEditExpense(exp)} style={styles.expActionBtn}>
+                                                <Ionicons name="pencil" size={16} color={COLORS.primary} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => deleteExpense(expId)} style={styles.expActionBtn}>
+                                                <Ionicons name="trash" size={16} color={COLORS.error} />
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 );
                             })
-                        ) : (
-                            <View style={{ alignItems: 'center', padding: 20 }}>
-                                <Text style={{ fontSize: 40, marginBottom: 10 }}>🎉</Text>
-                                <Text style={styles.settlementText}>
-                                    {members.length > 1 ? "Everyone is settled up! Zero balances." : "Add more members to split expenses."}
-                                </Text>
-                            </View>
                         )}
                     </View>
-                </View>
-                </>
-                ) : (
+
+                    {/* Settlement Info */}
                     <View style={styles.section}>
-                        <ItineraryView tripId={trip._id || trip.id} members={members} />
-                    </View>
-                )}
-
-                <View style={{ height: 40 }} />
-            </ScrollView>
-
-            {/* Add Expense Modal */}
-            <Modal visible={showExpenseModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Add Expense</Text>
-                            <TouchableOpacity onPress={() => setShowExpenseModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.modalForm}>
-                            <TouchableOpacity style={styles.scanBtn} onPress={handleScanReceipt} activeOpacity={0.8}>
-                                {scanning ? (
-                                    <ActivityIndicator color={COLORS.primary} size="small" />
-                                ) : (
-                                    <>
-                                        <Ionicons name="camera" size={20} color={COLORS.primary} />
-                                        <Text style={styles.scanBtnText}>📸 Scan Receipt</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-
-                            <View style={styles.divider}>
-                                <View style={styles.dividerLine} />
-                                <Text style={styles.dividerText}>OR MANUAL ENTRY</Text>
-                                <View style={styles.dividerLine} />
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Ionicons name="receipt-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Description"
-                                    placeholderTextColor={COLORS.textMuted}
-                                    value={expenseDesc}
-                                    onChangeText={setExpenseDesc}
-                                />
-                            </View>
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.currencySymbol}>₹</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Amount"
-                                    placeholderTextColor={COLORS.textMuted}
-                                    value={expenseAmount}
-                                    onChangeText={setExpenseAmount}
-                                    keyboardType="decimal-pad"
-                                />
-                            </View>
-
-                            <Text style={styles.formLabel}>Paid By</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                                {members.map(m => {
-                                    const mId = m._id || m.id;
-                                    const isSelected = String(expensePayerId) === String(mId);
+                        <Text style={styles.sectionTitle}>How to Settle Up 💸</Text>
+                        <View style={styles.settlementCard}>
+                            {settlements.length > 0 ? (
+                                settlements.map((s, i) => {
+                                    const fromMember = members.find(m => String(m._id || m.id) === String(s.from));
+                                    const toMember = members.find(m => String(m._id || m.id) === String(s.to));
+                                    const fromName = String(s.from) === String(userId) ? 'You' : fromMember?.name;
+                                    const toName = String(s.to) === String(userId) ? 'You' : toMember?.name;
+                                    
                                     return (
-                                        <TouchableOpacity
-                                            key={mId}
-                                            style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
-                                            onPress={() => setExpensePayerId(mId)}
-                                        >
-                                            <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
-                                                {String(mId) === String(userId) ? 'You' : m.name}
-                                            </Text>
-                                        </TouchableOpacity>
+                                        <View key={i} style={[styles.settlementRow, { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Ionicons name="wallet" size={20} color={COLORS.primary} />
+                                                </View>
+                                                <View>
+                                                    <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
+                                                        <Text style={{ color: COLORS.text, fontWeight: '700' }}>{fromName}</Text> needs to pay
+                                                    </Text>
+                                                    <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '800', marginTop: 2 }}>
+                                                        {toName}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '800' }}>
+                                                    ₹{s.amount.toFixed(2)}
+                                                </Text>
+                                                {String(s.from) === String(userId) && (
+                                                    <TouchableOpacity style={{ marginTop: 8, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Pay Now</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
                                     );
-                                })}
-                            </ScrollView>
-
-                            <Text style={styles.formLabel}>Split With</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                                {members.map(m => {
-                                    const mId = m._id || m.id;
-                                    const isSelected = expenseSplitWith.includes(mId);
-                                    return (
-                                        <TouchableOpacity
-                                            key={mId}
-                                            style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
-                                            onPress={() => toggleSplitMember(mId)}
-                                        >
-                                            <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
-                                                {String(mId) === String(userId) ? 'You' : m.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
-
-                            <TouchableOpacity
-                                style={styles.ecoToggle}
-                                onPress={handleToggleEcoFriendly}
-                            >
-                                <View style={[styles.checkbox, isEcoFriendly && styles.checkboxActive]}>
-                                    {isEcoFriendly && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                })
+                            ) : (
+                                <View style={{ alignItems: 'center', padding: 20 }}>
+                                    <Text style={{ fontSize: 40, marginBottom: 10 }}>🎉</Text>
+                                    <Text style={styles.settlementText}>
+                                        {members.length > 1 ? "Everyone is settled up! Zero balances." : "Add more members to split expenses."}
+                                    </Text>
                                 </View>
-                                <Text style={styles.ecoToggleText}>🌱 Eco-Friendly Expense (+15 Eco Points)</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity onPress={saveExpense} activeOpacity={0.8}>
-                                <LinearGradient
-                                    colors={['#10B981', '#059669']}
-                                    style={styles.modalSubmitBtn}
-                                >
-                                    <Text style={styles.modalSubmitText}>{editingExpenseId ? 'Save Changes' : 'Add Expense'}</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                            )}
                         </View>
                     </View>
-                </View>
-            </Modal>
+                    </>
+                    ) : (
+                        <View style={styles.section}>
+                            <ItineraryView tripId={trip._id || trip.id} members={members} />
+                        </View>
+                    )}
 
-            {/* Proof Modal */}
-            <Modal visible={showProofModal} animationType="slide" transparent={true}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Eco Proof</Text>
-                            <TouchableOpacity onPress={() => setShowProofModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.text} />
-                            </TouchableOpacity>
-                        </View>
-                        {selectedProofExpense && (
-                            <View style={{ alignItems: 'center', marginTop: 10 }}>
-                                <Image 
-                                    source={{ uri: `data:image/jpeg;base64,${selectedProofExpense.proofImageBase64}` }} 
-                                    style={{ width: '100%', height: 300, borderRadius: 10, resizeMode: 'cover' }} 
-                                />
-                                {selectedProofExpense.proofTime && (
-                                    <View style={{ marginTop: 15, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8 }}>
-                                        <Ionicons name="time" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-                                        <Text style={{ color: COLORS.text, fontSize: 16 }}>
-                                            {new Date(selectedProofExpense.proofTime).toLocaleString()}
-                                        </Text>
-                                    </View>
-                                )}
-                                {selectedProofExpense.proofLocation && (
-                                    <TouchableOpacity 
-                                        style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
-                                        onPress={() => {
-                                            const { latitude, longitude } = selectedProofExpense.proofLocation;
-                                            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
-                                        }}
-                                    >
-                                        <Ionicons name="map" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-                                        <Text style={{ color: COLORS.text, fontSize: 16, flex: 1 }}>View Location on Map</Text>
-                                        <Ionicons name="open-outline" size={16} color={COLORS.textSecondary} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        )}
-                    </View>
-                </View>
-            </Modal>
+                    <View style={{ height: 40 }} />
+                </ScrollView>
 
-            {/* Options Modal */}
-            <Modal visible={showOptionsModal} transparent animationType="fade">
-                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOptionsModal(false)}>
-                    <View style={[styles.modalContent, { marginTop: 'auto', marginBottom: 40, marginHorizontal: 20 }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Trip Options</Text>
-                            <TouchableOpacity onPress={() => setShowOptionsModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                        
-                        <TouchableOpacity 
-                            style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                            onPress={() => { setShowOptionsModal(false); setShowEditTripModal(true); }}
-                        >
-                            <Ionicons name="pencil" size={20} color={COLORS.text} />
-                            <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '600' }}>Edit Trip Details</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={{ paddingVertical: 16, borderBottomWidth: String(trip?.creatorId) === String(userId) ? 1 : 0, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                            onPress={() => {
-                                setShowOptionsModal(false);
-                                if (String(trip?.creatorId) === String(userId) && members.length > 1) {
-                                    setShowLeaveModal(true);
-                                } else {
-                                    Alert.alert('Leave Trip', 'Are you sure you want to leave this trip?', [
-                                        { text: 'Cancel', style: 'cancel' },
-                                        { text: 'Leave', style: 'destructive', onPress: handleLeaveTrip }
-                                    ]);
-                                }
-                            }}
-                        >
-                            <Ionicons name="exit-outline" size={20} color={COLORS.error} />
-                            <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Leave Trip</Text>
-                        </TouchableOpacity>
-                        
-                        {String(trip?.creatorId) === String(userId) && (
-                            <TouchableOpacity 
-                                style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                                onPress={() => { setShowOptionsModal(false); handleDeleteTrip(); }}
-                            >
-                                <Ionicons name="trash-outline" size={20} color={COLORS.error} />
-                                <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Delete Trip</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-
-            {/* Edit Trip Modal */}
-            <Modal visible={showEditTripModal} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Trip</Text>
-                            <TouchableOpacity onPress={() => setShowEditTripModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                        
-                        <Text style={styles.formLabel}>Trip Name</Text>
-                        <View style={styles.inputGroup}>
-                            <Ionicons name="text-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. Summer Vacation"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={editTripName}
-                                onChangeText={setEditTripName}
-                            />
-                        </View>
-                        
-                        <Text style={styles.formLabel}>Destination</Text>
-                        <View style={styles.inputGroup}>
-                            <Ionicons name="location-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. Hawaii"
-                                placeholderTextColor={COLORS.textSecondary}
-                                value={editTripDest}
-                                onChangeText={setEditTripDest}
-                            />
-                        </View>
-
-                        <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleEditTrip}>
-                            <LinearGradient colors={['#10B981', '#059669']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
-                            <Text style={styles.modalSubmitText}>Save Changes</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Leave Trip Modal (For Creator) */}
-            <Modal visible={showLeaveModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Assign New Creator</Text>
-                            <TouchableOpacity onPress={() => setShowLeaveModal(false)}>
-                                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                        
-                        <Text style={{ color: COLORS.textSecondary, marginBottom: 16 }}>
-                            Since you created this trip, you must assign someone else to manage it before you can leave.
-                        </Text>
-                        
-                        <ScrollView style={{ maxHeight: 200, marginBottom: 16 }}>
-                            {members.filter(m => String(m._id || m.id) !== String(userId)).map(m => (
-                                <TouchableOpacity 
-                                    key={m._id || m.id}
-                                    style={[{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }, newCreatorId === (m._id || m.id) && { borderColor: COLORS.primary, backgroundColor: 'rgba(16,185,129,0.1)' }]}
-                                    onPress={() => setNewCreatorId(m._id || m.id)}
-                                >
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ color: COLORS.text, fontWeight: '700' }}>{m.name}</Text>
-                                        <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{m.email}</Text>
-                                    </View>
-                                    {newCreatorId === (m._id || m.id) && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                {/* Add Expense Modal */}
+                <Modal visible={showExpenseModal} transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Add Expense</Text>
+                                <TouchableOpacity onPress={() => setShowExpenseModal(false)}>
+                                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
                                 </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                            </View>
 
-                        <TouchableOpacity 
-                            style={[styles.modalSubmitBtn, { opacity: newCreatorId ? 1 : 0.5 }]} 
-                            disabled={!newCreatorId}
-                            onPress={handleLeaveTrip}
-                        >
-                            <LinearGradient colors={['#EF4444', '#DC2626']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
-                            <Text style={styles.modalSubmitText}>Confirm Leave</Text>
-                        </TouchableOpacity>
+                            <View style={styles.modalForm}>
+                                <TouchableOpacity style={styles.scanBtn} onPress={handleScanReceipt} activeOpacity={0.8}>
+                                    {scanning ? (
+                                        <ActivityIndicator color={COLORS.primary} size="small" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="camera" size={20} color={COLORS.primary} />
+                                            <Text style={styles.scanBtnText}>📸 Scan Receipt</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <View style={styles.divider}>
+                                    <View style={styles.dividerLine} />
+                                    <Text style={styles.dividerText}>OR MANUAL ENTRY</Text>
+                                    <View style={styles.dividerLine} />
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                    <Ionicons name="receipt-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Description"
+                                        placeholderTextColor={COLORS.textMuted}
+                                        value={expenseDesc}
+                                        onChangeText={setExpenseDesc}
+                                    />
+                                </View>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.currencySymbol}>₹</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Amount"
+                                        placeholderTextColor={COLORS.textMuted}
+                                        value={expenseAmount}
+                                        onChangeText={setExpenseAmount}
+                                        keyboardType="decimal-pad"
+                                    />
+                                </View>
+
+                                <Text style={styles.formLabel}>Paid By</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                                    {members.map(m => {
+                                        const mId = m._id || m.id;
+                                        const isSelected = String(expensePayerId) === String(mId);
+                                        return (
+                                            <TouchableOpacity
+                                                key={mId}
+                                                style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                                                onPress={() => setExpensePayerId(mId)}
+                                            >
+                                                <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                                                    {String(mId) === String(userId) ? 'You' : m.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                <Text style={styles.formLabel}>Split With</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                                    {members.map(m => {
+                                        const mId = m._id || m.id;
+                                        const isSelected = expenseSplitWith.includes(mId);
+                                        return (
+                                            <TouchableOpacity
+                                                key={mId}
+                                                style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                                                onPress={() => toggleSplitMember(mId)}
+                                            >
+                                                <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                                                    {String(mId) === String(userId) ? 'You' : m.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                <TouchableOpacity
+                                    style={styles.ecoToggle}
+                                    onPress={handleToggleEcoFriendly}
+                                >
+                                    <View style={[styles.checkbox, isEcoFriendly && styles.checkboxActive]}>
+                                        {isEcoFriendly && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                    </View>
+                                    <Text style={styles.ecoToggleText}>🌱 Eco-Friendly Expense (+15 Eco Points)</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity onPress={saveExpense} activeOpacity={0.8}>
+                                    <LinearGradient
+                                        colors={['#10B981', '#059669']}
+                                        style={styles.modalSubmitBtn}
+                                    >
+                                        <Text style={styles.modalSubmitText}>{editingExpenseId ? 'Save Changes' : 'Add Expense'}</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
-                </View>
-            </Modal>
-        </View>
+                </Modal>
+
+                {/* Proof Modal */}
+                <Modal visible={showProofModal} animationType="slide" transparent={true}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Eco Proof</Text>
+                                <TouchableOpacity onPress={() => setShowProofModal(false)}>
+                                    <Ionicons name="close" size={24} color={COLORS.text} />
+                                </TouchableOpacity>
+                            </View>
+                            {selectedProofExpense && (
+                                <View style={{ alignItems: 'center', marginTop: 10 }}>
+                                    <Image 
+                                        source={{ uri: `data:image/jpeg;base64,${selectedProofExpense.proofImageBase64}` }} 
+                                        style={{ width: '100%', height: 300, borderRadius: 10, resizeMode: 'cover' }} 
+                                    />
+                                    {selectedProofExpense.proofTime && (
+                                        <View style={{ marginTop: 15, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8 }}>
+                                            <Ionicons name="time" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                                            <Text style={{ color: COLORS.text, fontSize: 16 }}>
+                                                {new Date(selectedProofExpense.proofTime).toLocaleString()}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {selectedProofExpense.proofLocation && (
+                                        <TouchableOpacity 
+                                            style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
+                                            onPress={() => {
+                                                const { latitude, longitude } = selectedProofExpense.proofLocation;
+                                                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
+                                            }}
+                                        >
+                                            <Ionicons name="map" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                                            <Text style={{ color: COLORS.text, fontSize: 16, flex: 1 }}>View Location on Map</Text>
+                                            <Ionicons name="open-outline" size={16} color={COLORS.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Options Modal */}
+                <Modal visible={showOptionsModal} transparent animationType="fade">
+                    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOptionsModal(false)}>
+                        <View style={[styles.modalContent, { marginTop: 'auto', marginBottom: 40, marginHorizontal: 20 }]}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Trip Options</Text>
+                                <TouchableOpacity onPress={() => setShowOptionsModal(false)}>
+                                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <TouchableOpacity 
+                                style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                onPress={() => { setShowOptionsModal(false); setShowEditTripModal(true); }}
+                            >
+                                <Ionicons name="pencil" size={20} color={COLORS.text} />
+                                <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: '600' }}>Edit Trip Details</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={{ paddingVertical: 16, borderBottomWidth: String(trip?.creatorId) === String(userId) ? 1 : 0, borderBottomColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                onPress={() => {
+                                    setShowOptionsModal(false);
+                                    if (String(trip?.creatorId) === String(userId) && members.length > 1) {
+                                        setShowLeaveModal(true);
+                                    } else {
+                                        Alert.alert('Leave Trip', 'Are you sure you want to leave this trip?', [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Leave', style: 'destructive', onPress: handleLeaveTrip }
+                                        ]);
+                                    }
+                                }}
+                            >
+                                <Ionicons name="exit-outline" size={20} color={COLORS.error} />
+                                <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Leave Trip</Text>
+                            </TouchableOpacity>
+                            
+                            {String(trip?.creatorId) === String(userId) && (
+                                <TouchableOpacity 
+                                    style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                    onPress={() => { setShowOptionsModal(false); handleDeleteTrip(); }}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                                    <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '600' }}>Delete Trip</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Edit Trip Modal */}
+                <Modal visible={showEditTripModal} transparent animationType="slide">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Edit Trip</Text>
+                                <TouchableOpacity onPress={() => setShowEditTripModal(false)}>
+                                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <Text style={styles.formLabel}>Trip Name</Text>
+                            <View style={styles.inputGroup}>
+                                <Ionicons name="text-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. Summer Vacation"
+                                    placeholderTextColor={COLORS.textSecondary}
+                                    value={editTripName}
+                                    onChangeText={setEditTripName}
+                                />
+                            </View>
+                            
+                            <Text style={styles.formLabel}>Destination</Text>
+                            <View style={styles.inputGroup}>
+                                <Ionicons name="location-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. Hawaii"
+                                    placeholderTextColor={COLORS.textSecondary}
+                                    value={editTripDest}
+                                    onChangeText={setEditTripDest}
+                                />
+                            </View>
+
+                            <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleEditTrip}>
+                                <LinearGradient colors={['#10B981', '#059669']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
+                                <Text style={styles.modalSubmitText}>Save Changes</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Leave Trip Modal (For Creator) */}
+                <Modal visible={showLeaveModal} transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Assign New Creator</Text>
+                                <TouchableOpacity onPress={() => setShowLeaveModal(false)}>
+                                    <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                            
+                            <Text style={{ color: COLORS.textSecondary, marginBottom: 16 }}>
+                                Since you created this trip, you must assign someone else to manage it before you can leave.
+                            </Text>
+                            
+                            <ScrollView style={{ maxHeight: 200, marginBottom: 16 }}>
+                                {members.filter(m => String(m._id || m.id) !== String(userId)).map(m => (
+                                    <TouchableOpacity 
+                                        key={m._id || m.id}
+                                        style={[{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }, newCreatorId === (m._id || m.id) && { borderColor: COLORS.primary, backgroundColor: 'rgba(16,185,129,0.1)' }]}
+                                        onPress={() => setNewCreatorId(m._id || m.id)}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: COLORS.text, fontWeight: '700' }}>{m.name}</Text>
+                                            <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{m.email}</Text>
+                                        </View>
+                                        {newCreatorId === (m._id || m.id) && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <TouchableOpacity 
+                                style={[styles.modalSubmitBtn, { opacity: newCreatorId ? 1 : 0.5 }]} 
+                                disabled={!newCreatorId}
+                                onPress={handleLeaveTrip}
+                            >
+                                <LinearGradient colors={['#EF4444', '#DC2626']} style={[StyleSheet.absoluteFill, { borderRadius: SIZES.radiusMd }]} />
+                                <Text style={styles.modalSubmitText}>Confirm Leave</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
+        </KeyboardAvoidingView>
     );
 }
 
