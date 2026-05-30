@@ -6,7 +6,7 @@ const AuthContext = createContext();
 
 // Configure your API URL here:
 // Production (Your new Voyago Vercel URL):
-const PRODUCTION_URL = 'https://voyago-cqujmdy6b-panchami-ps-projects.vercel.app/api';
+const PRODUCTION_URL = 'https://voyago-chi.vercel.app/api';
 
 // Local development:
 const LOCAL_URL = 'http://192.168.31.52:5000/api';
