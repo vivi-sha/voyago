@@ -49,6 +49,8 @@ export default function LoginScreen({ navigation }) {
             });
             if (createdSessionId) {
                 setActive({ session: createdSessionId });
+                // Return here so we DO NOT turn off the loading spinner!
+                return;
             }
         } catch (err) {
             console.error(JSON.stringify(err, null, 2));
@@ -60,9 +62,8 @@ export default function LoginScreen({ navigation }) {
             } else {
                 Alert.alert('Google Auth Error', 'Could not complete Google sign in.');
             }
-        } finally {
-            setGoogleLoading(false);
         }
+        setGoogleLoading(false);
     }, [startOAuthFlow]);
 
     const onSignInPress = useCallback(async () => {
@@ -74,12 +75,13 @@ export default function LoginScreen({ navigation }) {
                 password,
             });
             await setSignInActive({ session: completeSignIn.createdSessionId });
+            // Return here so we DO NOT turn off the loading spinner!
+            return;
         } catch (err) {
             console.error(JSON.stringify(err, null, 2));
             Alert.alert('Login Error', err.errors ? err.errors[0].message : 'Internal error');
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     }, [signInLoaded, email, password]);
 
     const onSignUpPress = useCallback(async () => {
@@ -111,15 +113,16 @@ export default function LoginScreen({ navigation }) {
             });
             if (completeSignUp.status === 'complete') {
                 await setSignUpActive({ session: completeSignUp.createdSessionId });
+                // Return here so we DO NOT turn off the loading spinner!
+                return;
             } else {
                 console.log(JSON.stringify(completeSignUp, null, 2));
             }
         } catch (err) {
             console.error(JSON.stringify(err, null, 2));
             Alert.alert('Verification Error', err.errors ? err.errors[0].message : 'Internal error');
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     }, [signUpLoaded, code, setSignUpActive]);
 
     return (
