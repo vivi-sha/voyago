@@ -106,8 +106,10 @@ function RootNavigator() {
 
   React.useEffect(() => {
     if (url) {
-      const { path, queryParams } = Linking.parse(url);
-      if (path === 'join' && queryParams?.code) {
+      const { path, hostname, queryParams } = Linking.parse(url);
+      const isJoin = path === 'join' || hostname === 'join' || url.includes('join');
+      
+      if (isJoin && queryParams?.code) {
         if (user) {
           (async () => {
             try {
