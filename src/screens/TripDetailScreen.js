@@ -14,6 +14,7 @@ import { parseReceipt } from '../utils/receiptParser';
 import EcoMap from '../components/EcoMap';
 import { triggerSuccess, playEcoChime, triggerLight } from '../utils/feedback';
 import * as Linking from 'expo-linking';
+import ItineraryView from '../components/ItineraryView';
 
 export default function TripDetailScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
@@ -43,6 +44,7 @@ export default function TripDetailScreen({ route, navigation }) {
     const [editTripName, setEditTripName] = useState(initialTrip.name || '');
     const [editTripDest, setEditTripDest] = useState(initialTrip.destination || '');
     const [newCreatorId, setNewCreatorId] = useState(null);
+    const [activeTab, setActiveTab] = useState('expenses');
 
     useEffect(() => {
         fetchTripData();
@@ -368,7 +370,7 @@ export default function TripDetailScreen({ route, navigation }) {
     const shareTrip = async () => {
         try {
             // Production Vercel URL that redirects to voyago:// custom scheme
-            const shareableLink = `https://ecoshare-eight.vercel.app/api/join/${trip.shareCode}`;
+            const shareableLink = `${API_URL}/join/${trip.shareCode}`;
             
             await Share.share({
                 message: `🌍 You've been invited to join the trip "${trip.name}" on Voyago!\n\nClick to join:\n${shareableLink}\n\n(Or enter code manually: *${trip.shareCode}*)`,
@@ -508,7 +510,27 @@ export default function TripDetailScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* Members */}
+                {/* Tab Toggle */}
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'expenses' && styles.tabBtnActive]} 
+                        onPress={() => setActiveTab('expenses')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'expenses' && styles.tabBtnTextActive]}>🧾 Expenses</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, activeTab === 'itinerary' && styles.tabBtnActive]} 
+                        onPress={() => setActiveTab('itinerary')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.tabBtnText, activeTab === 'itinerary' && styles.tabBtnTextActive]}>🗺️ Itinerary</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {activeTab === 'expenses' ? (
+                    <>
+                        {/* Members */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Members</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -656,6 +678,12 @@ export default function TripDetailScreen({ route, navigation }) {
                         )}
                     </View>
                 </View>
+                </>
+                ) : (
+                    <View style={styles.section}>
+                        <ItineraryView tripId={trip._id || trip.id} members={members} />
+                    </View>
+                )}
 
                 <View style={{ height: 40 }} />
             </ScrollView>
@@ -1327,6 +1355,201 @@ const styles = StyleSheet.create({
     choiceChipText: {
         color: COLORS.textSecondary,
         fontSize: SIZES.fontSm,
+        borderRadius: 12,
+        padding: 4,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    tabBtn: {
+        fontSize: SIZES.fontLg,
+        fontWeight: '700',
+        color: COLORS.text,
+    },
+    expenseActions: {
+        flexDirection: 'row',
+        gap: 8,
+        paddingLeft: 8,
+        borderLeftWidth: 1,
+        borderLeftColor: COLORS.border,
+    },
+    expActionBtn: {
+        padding: 6,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 8,
+    },
+    ecoBadge: {
+        backgroundColor: 'rgba(16,185,129,0.15)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    ecoBadgeText: {
+        fontSize: 10,
+        color: COLORS.primary,
+        fontWeight: '600',
+    },
+    settlementCard: {
+        backgroundColor: COLORS.backgroundCard,
+        borderRadius: SIZES.radiusLg,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: COLORS.glassStroke,
+    },
+    settlementText: {
+        fontSize: SIZES.fontMd,
+        color: COLORS.textSecondary,
+        marginBottom: 12,
+    },
+    settlementRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.border,
+    },
+    settlementName: {
+        fontSize: SIZES.fontMd,
+        fontWeight: '600',
+        color: COLORS.text,
+    },
+    settlementAmount: {
+        fontSize: SIZES.fontSm,
+        fontWeight: '600',
+    },
+    // Modal styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+    },
+    modalContent: {
+        backgroundColor: COLORS.backgroundCard,
+        borderRadius: SIZES.radiusXl,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: COLORS.glassStroke,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        fontSize: SIZES.fontXl,
+        fontWeight: '700',
+        color: COLORS.text,
+    },
+    modalForm: {
+        gap: 14,
+    },
+    inputGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: SIZES.radiusMd,
+    },
+    inputIcon: {
+        paddingHorizontal: 14,
+    },
+    currencySymbol: {
+        paddingHorizontal: 14,
+        fontSize: 18,
+        color: COLORS.textMuted,
+    },
+    input: {
+        flex: 1,
+        height: 50,
+        color: COLORS.text,
+        fontSize: SIZES.fontMd,
+    },
+    scanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(16,185,129,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(16,185,129,0.3)',
+        borderRadius: SIZES.radiusMd,
+        paddingVertical: 12,
+    },
+    scanBtnText: {
+        color: COLORS.primary,
+        fontWeight: '700',
+        fontSize: SIZES.fontMd,
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 4,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: COLORS.border,
+    },
+    dividerText: {
+        color: COLORS.textMuted,
+        paddingHorizontal: 12,
+        fontSize: 10,
+        fontWeight: '700',
+    },
+    ecoToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 4,
+    },
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: COLORS.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    ecoToggleText: {
+        fontSize: SIZES.fontSm,
+        color: COLORS.textSecondary,
+    },
+    formLabel: {
+        color: COLORS.text,
+        fontSize: SIZES.fontSm,
+        fontWeight: '700',
+        marginTop: 8,
+        marginBottom: -6,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        marginBottom: 8,
+    },
+    choiceChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: SIZES.radiusFull,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        marginRight: 8,
+    },
+    choiceChipActive: {
+        backgroundColor: 'rgba(16,185,129,0.15)',
+        borderColor: COLORS.primary,
+    },
+    choiceChipText: {
+        color: COLORS.textSecondary,
+        fontSize: SIZES.fontSm,
         fontWeight: '600',
     },
     choiceChipTextActive: {
@@ -1334,13 +1557,50 @@ const styles = StyleSheet.create({
     },
     modalSubmitBtn: {
         paddingVertical: 14,
-        borderRadius: SIZES.radiusMd,
+        borderRadius: 12,
         alignItems: 'center',
         marginTop: 4,
     },
     modalSubmitText: {
         color: '#fff',
         fontWeight: '700',
-        fontSize: SIZES.fontLg,
+        fontSize: 18,
+    },
+    actionBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        marginHorizontal: 16,
+        marginTop: 8,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 12,
+        padding: 4,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    tabBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    tabBtnActive: {
+        backgroundColor: COLORS.primary,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    tabBtnText: {
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    tabBtnTextActive: {
+        color: '#fff',
     },
 });

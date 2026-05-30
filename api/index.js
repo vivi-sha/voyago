@@ -81,6 +81,20 @@ const User = mongoose.models.User || mongoose.model('User', userSchema);
 const Trip = mongoose.models.Trip || mongoose.model('Trip', tripSchema);
 const Expense = mongoose.models.Expense || mongoose.model('Expense', expenseSchema);
 
+const itineraryItemSchema = new mongoose.Schema({
+    tripId: mongoose.Schema.Types.ObjectId,
+    creatorId: mongoose.Schema.Types.ObjectId,
+    type: { type: String, enum: ['note', 'place', 'poll'], default: 'note' },
+    content: String,
+    pollOptions: [{
+        option: String,
+        votes: [mongoose.Schema.Types.ObjectId]
+    }],
+    date: { type: Date, default: Date.now }
+}, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
+
+const ItineraryItem = mongoose.models.ItineraryItem || mongoose.model('ItineraryItem', itineraryItemSchema);
+
 // --- Routes ---
 
 app.get('/', (req, res) => res.send('Voyago Backend Active'));
@@ -447,6 +461,78 @@ app.delete('/api/expenses/:id', async (req, res) => {
             );
         }
         res.json({ message: 'Expense deleted' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Smart Itinerary Routes ---
+
+// Get Itinerary for a Trip
+app.get('/api/trips/:id/itinerary', async (req, res) => {
+    await connectDB();
+    try {
+        const items = await ItineraryItem.find({ tripId: req.params.id }).sort({ date: -1 });
+        res.json(items);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add Itinerary Item
+app.post('/api/trips/:id/itinerary', async (req, res) => {
+    await connectDB();
+    try {
+        const item = new ItineraryItem({
+            ...req.body,
+            tripId: req.params.id
+        });
+        await item.save();
+        res.json(item);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Vote on a Poll
+app.post('/api/itinerary/:itemId/vote', async (req, res) => {
+    await connectDB();
+    try {
+        const { optionIndex, userId } = req.body;
+        const item = await ItineraryItem.findById(req.params.itemId);
+        if (!item || item.type !== 'poll') return res.status(404).json({ error: 'Poll not found' });
+
+        // Remove user's vote from all options first (single vote per user)
+        item.pollOptions.forEach(opt => {
+            opt.votes = opt.votes.filter(id => String(id) !== String(userId));
+        });
+
+        // Add vote to selected option
+        if (optionIndex !== undefined && optionIndex >= 0 && optionIndex < item.pollOptions.length) {
+            item.pollOptions[optionIndex].votes.push(userId);
+        }
+
+        await item.save();
+        res.json(item);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Itinerary Item
+app.delete('/api/itinerary/:itemId', async (req, res) => {
+    await connectDB();
+    try {
+        const { userId } = req.query;
+        const item = await ItineraryItem.findById(req.params.itemId);
+        if (!item) return res.status(404).json({ error: 'Item not found' });
+        
+        if (String(item.creatorId) !== String(userId)) {
+            return res.status(403).json({ error: 'Only the creator can delete this item' });
+        }
+        
+        await ItineraryItem.findByIdAndDelete(req.params.itemId);
+        res.json({ message: 'Item deleted' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

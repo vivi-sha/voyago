@@ -5,15 +5,13 @@ import * as SecureStore from 'expo-secure-store';
 const AuthContext = createContext();
 
 // Configure your API URL here:
-// Production (Vercel deployment):
-const PRODUCTION_URL = 'https://ecoshare-eight.vercel.app/api';
+// Production (Your new Voyago Vercel URL):
+const PRODUCTION_URL = 'https://voyago-cqujmdy6b-panchami-ps-projects.vercel.app/api';
 
-// Local development - uncomment and set your machine's local IP to use the local backend:
-// const LOCAL_IP = '10.75.86.148';
-// const LOCAL_URL = `http://${LOCAL_IP}:5000/api`;
+// Local development:
+const LOCAL_URL = 'http://192.168.31.52:5000/api';
 
 const getApiUrl = () => {
-    // Return production URL so anyone in the world can use it!
     return PRODUCTION_URL;
 };
 

@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -53,7 +54,7 @@ const tokenCache = {
   },
 };
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_c3F1YXJlLXNjb3JwaW9uLTMzLmNsZXJrLmFjY291bnRzLmRldiQ';
+const publishableKey = 'pk_test_c3F1YXJlLXNjb3JwaW9uLTMzLmNsZXJrLmFjY291bnRzLmRldiQ';
 
 if (!publishableKey) {
   throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
