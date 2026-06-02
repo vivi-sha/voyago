@@ -124,9 +124,9 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            await signOut();
             setUser(null);
             await SecureStore.deleteItemAsync('cachedUser');
+            await signOut();
         } catch (e) {
             console.error('Logout failed:', e);
         }
