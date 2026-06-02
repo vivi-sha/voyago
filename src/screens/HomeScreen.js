@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Logo from '../components/Logo';
 
 const { width } = Dimensions.get('window');
 
@@ -205,8 +206,7 @@ export default function HomeScreen({ navigation }) {
                 {/* Footer */}
                 <View style={styles.footer}>
                     <View style={styles.footerLogo}>
-                        <Text style={{ fontSize: 24 }}>🌿</Text>
-                        <Text style={styles.footerLogoText}>Voyago</Text>
+                        <Logo size="small" />
                     </View>
                     <Text style={styles.footerDesc}>
                         Making global travel sustainable and collaborative for everyone.

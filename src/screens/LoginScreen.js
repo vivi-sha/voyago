@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
-
+import Logo from '../components/Logo';
 export const useWarmUpBrowser = () => {
   useEffect(() => {
     void WebBrowser.warmUpAsync();
@@ -139,10 +139,7 @@ export default function LoginScreen({ navigation }) {
 
                 <View style={styles.content}>
                     <View style={styles.logoMark}>
-                        <View style={styles.logoCircle}>
-                            <Text style={{ fontSize: 36 }}>🌿</Text>
-                        </View>
-                        <Text style={styles.logoText}>Voyago</Text>
+                        <Logo size="medium" />
                     </View>
 
                     <Text style={styles.title}>

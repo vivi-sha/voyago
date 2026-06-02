@@ -104,8 +104,11 @@ function RootNavigator() {
   const { user, loading, fetchWithAuth, API_URL } = useAuth();
   const url = Linking.useURL();
 
+  const processedUrlRef = React.useRef(null);
+
   React.useEffect(() => {
-    if (url) {
+    if (url && url !== processedUrlRef.current) {
+      processedUrlRef.current = url;
       const { path, hostname, queryParams } = Linking.parse(url);
       const isJoin = path === 'join' || hostname === 'join' || url.includes('join');
       
