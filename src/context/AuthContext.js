@@ -36,8 +36,19 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         if (clerkLoaded) {
             if (clerkUser) {
-                // Sync with your backend
-                syncUserWithBackend(clerkUser);
+                // Try to load cached user first for instant UI
+                SecureStore.getItemAsync('cachedUser').then(cached => {
+                    if (cached) {
+                        try {
+                            setUser(JSON.parse(cached));
+                            setLoading(false); // Unblock the UI instantly!
+                        } catch (e) {
+                            console.error('Failed to parse cached user', e);
+                        }
+                    }
+                    // Sync with your backend in the background
+                    syncUserWithBackend(clerkUser, !cached);
+                });
             } else {
                 setUser(null);
                 setLoading(false);
@@ -45,7 +56,7 @@ export const AuthProvider = ({ children }) => {
         }
     }, [clerkUser, clerkLoaded]);
 
-    const syncUserWithBackend = async (cUser) => {
+    const syncUserWithBackend = async (cUser, updateLoadingState = true) => {
         try {
             console.log(`Syncing with ${API_URL}/auth/google...`);
             const res = await fetchWithAuth(`${API_URL}/auth/google`, {
@@ -65,6 +76,7 @@ export const AuthProvider = ({ children }) => {
                 if (text) {
                     const data = JSON.parse(text);
                     setUser(data);
+                    SecureStore.setItemAsync('cachedUser', text).catch(console.error);
                     
                     // Check if there was a pending trip join from a deep link
                     const pendingCode = await SecureStore.getItemAsync('pendingJoinCode');
@@ -102,7 +114,9 @@ export const AuthProvider = ({ children }) => {
                 donatedPoints: 0,
             });
         } finally {
-            setLoading(false);
+            if (updateLoadingState) {
+                setLoading(false);
+            }
         }
     };
 
@@ -110,6 +124,7 @@ export const AuthProvider = ({ children }) => {
         try {
             await signOut();
             setUser(null);
+            await SecureStore.deleteItemAsync('cachedUser');
         } catch (e) {
             console.error('Logout failed:', e);
         }
