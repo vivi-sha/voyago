@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, StatusBar, DeviceEventEmitter } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
@@ -119,6 +119,7 @@ function RootNavigator() {
               });
               if (res.ok) {
                 alert('Success! You have been added to the trip!');
+                DeviceEventEmitter.emit('refreshTrips');
               } else {
                 const data = await res.json();
                 alert(`Could not join trip: ${data.error || 'Invalid code'}`);

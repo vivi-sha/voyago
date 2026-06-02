@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
+import { DeviceEventEmitter } from 'react-native';
 
 const AuthContext = createContext();
 
@@ -88,6 +89,7 @@ export const AuthProvider = ({ children }) => {
                             });
                             if (joinRes.ok) {
                                 alert('Success! You have been added to the trip!');
+                                DeviceEventEmitter.emit('refreshTrips');
                             }
                             await SecureStore.deleteItemAsync('pendingJoinCode');
                         } catch (e) {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, ActivityIndicator, Modal, Animated, RefreshControl
+    TextInput, Alert, ActivityIndicator, Modal, Animated, RefreshControl,
+    DeviceEventEmitter
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,11 @@ export default function TripsScreen({ navigation }) {
     useEffect(() => {
         fetchTrips();
         Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+        
+        const subscription = DeviceEventEmitter.addListener('refreshTrips', () => {
+            fetchTrips();
+        });
+        return () => subscription.remove();
     }, []);
 
     const fetchTrips = async () => {
