@@ -97,7 +97,14 @@ export default function ProfileScreen({ navigation }) {
     }, [ecoPoints]);
 
     const handleLogout = () => {
-        logout();
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out of your account?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log Out', style: 'destructive', onPress: () => logout() }
+            ]
+        );
     };
 
     const menuItems = [
