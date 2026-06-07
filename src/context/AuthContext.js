@@ -123,8 +123,9 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
+        // Set user to null synchronously to instantly update the UI (App.js)
+        setUser(null);
         try {
-            setUser(null);
             await SecureStore.deleteItemAsync('cachedUser');
             await signOut();
         } catch (e) {

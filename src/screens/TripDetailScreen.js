@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     TextInput, Alert, ActivityIndicator, Modal, Share, Image,
@@ -37,6 +37,7 @@ export default function TripDetailScreen({ route, navigation }) {
     const [proofTime, setProofTime] = useState(null);
     const [showProofModal, setShowProofModal] = useState(false);
     const [selectedProofExpense, setSelectedProofExpense] = useState(null);
+    const alertedPaymentsRef = useRef(new Set());
 
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showEditTripModal, setShowEditTripModal] = useState(false);
@@ -81,6 +82,52 @@ export default function TripDetailScreen({ route, navigation }) {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!expenses || !members || !userId) return;
+        const pendingPayment = expenses.find(e => e.type === 'payment' && e.status === 'pending' && String(e.splitWith[0]) === String(userId));
+        
+        if (pendingPayment) {
+            const paymentId = String(pendingPayment._id || pendingPayment.id);
+            if (!alertedPaymentsRef.current.has(paymentId)) {
+                alertedPaymentsRef.current.add(paymentId);
+                const fromMember = members.find(m => String(m._id || m.id) === String(pendingPayment.payerId));
+                const fromName = fromMember?.name || 'someone';
+
+                Alert.alert(
+                    'Confirm Receipt',
+                    `Did you receive ₹${pendingPayment.amount?.toFixed(2)} from ${fromName}?`,
+                    [
+                        { 
+                            text: 'No (Reject)', 
+                            style: 'cancel',
+                            onPress: async () => {
+                                try {
+                                    const res = await fetchWithAuth(`${API_URL}/expenses/${paymentId}`, {
+                                        method: 'PUT',
+                                        body: JSON.stringify({ status: 'rejected' })
+                                    });
+                                    if (res.ok) fetchTripData();
+                                } catch (e) {}
+                            }
+                        },
+                        {
+                            text: 'Yes (Confirm)',
+                            onPress: async () => {
+                                try {
+                                    const res = await fetchWithAuth(`${API_URL}/expenses/${paymentId}`, {
+                                        method: 'PUT',
+                                        body: JSON.stringify({ status: 'confirmed' })
+                                    });
+                                    if (res.ok) fetchTripData();
+                                } catch (e) {}
+                            }
+                        }
+                    ]
+                );
+            }
+        }
+    }, [expenses, members, userId]);
 
     const processReceiptResult = async (result) => {
         if (!result.canceled && result.assets && result.assets[0].base64) {
@@ -413,12 +460,29 @@ export default function TripDetailScreen({ route, navigation }) {
 
     const calculateSettlement = () => {
         let balances = {};
+        let totalPaid = {}; // Tracks confirmed payments made from A to B
+        let pendingPaid = {}; // Tracks pending payments from A to B
+
         members.forEach(m => { balances[m._id || m.id] = 0; });
         
         expenses.forEach(exp => {
             const amount = exp.amount || 0;
-            const payerId = exp.payerId;
-            const splitWith = exp.splitWith?.length > 0 ? exp.splitWith : members.map(m => m._id || m.id);
+            const payerId = String(exp.payerId);
+            
+            if (exp.type === 'payment') {
+                const receiverId = String(exp.splitWith[0]);
+                const key = `${payerId}_${receiverId}`;
+                
+                if (exp.status === 'confirmed') {
+                    totalPaid[key] = (totalPaid[key] || 0) + amount;
+                } else if (exp.status === 'pending') {
+                    pendingPaid[key] = (pendingPaid[key] || 0) + amount;
+                }
+                return; // Do not affect base balances
+            }
+
+            // Regular expenses
+            const splitWith = exp.splitWith?.length > 0 ? exp.splitWith.map(String) : members.map(m => String(m._id || m.id));
             
             if (balances[payerId] !== undefined) {
                 balances[payerId] += amount;
@@ -446,10 +510,20 @@ export default function TripDetailScreen({ route, navigation }) {
             let creditor = creditors[j];
             let amount = Math.min(debtor.amount, creditor.amount);
             
+            const key = `${debtor.id}_${creditor.id}`;
+            const confirmedAmt = totalPaid[key] || 0;
+            const pendingAmt = pendingPaid[key] || 0;
+
+            // Find rejected payment if any exists for display
+            const rejectedPayment = expenses.find(e => e.type === 'payment' && e.status === 'rejected' && String(e.payerId) === String(debtor.id) && String(e.splitWith[0]) === String(creditor.id));
+
             settlements.push({
                 from: debtor.id,
                 to: creditor.id,
-                amount: amount
+                amount: amount,
+                confirmedPaid: confirmedAmt,
+                pendingPaid: pendingAmt,
+                rejectedPaymentId: rejectedPayment ? (rejectedPayment._id || rejectedPayment.id) : null
             });
             
             debtor.amount -= amount;
@@ -459,13 +533,115 @@ export default function TripDetailScreen({ route, navigation }) {
             if (creditor.amount < 0.01) j++;
         }
         
+        // Also factor in confirmed payments so user balances accurately reflect them
+        Object.keys(totalPaid).forEach(key => {
+            const [payerId, receiverId] = key.split('_');
+            const amt = totalPaid[key];
+            if (balances[payerId] !== undefined) balances[payerId] += amt;
+            if (balances[receiverId] !== undefined) balances[receiverId] -= amt;
+        });
+
         return { balances, settlements };
     };
 
     const { balances, settlements } = members.length > 0 ? calculateSettlement() : { balances: {}, settlements: [] };
     const myBalance = balances[String(userId)] || 0;
-    const youPaid = expenses.filter(e => String(e.payerId) === String(userId)).reduce((sum, e) => sum + (e.amount || 0), 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const youPaid = expenses.filter(e => String(e.payerId) === String(userId) && e.type !== 'payment').reduce((sum, e) => sum + (e.amount || 0), 0);
+    const totalExpenses = expenses.filter(e => e.type !== 'payment').reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    const handlePayNow = (s) => {
+        const toMember = members.find(m => String(m._id || m.id) === String(s.to));
+        const toName = toMember?.name || 'them';
+        
+        Alert.alert(
+            'Confirm Payment',
+            `Have you paid ${toName} ₹${s.amount.toFixed(2)}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Yes',
+                    onPress: async () => {
+                        try {
+                            const res = await fetchWithAuth(`${API_URL}/expenses`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    tripId: trip._id || trip.id,
+                                    description: `Payment to ${toName}`,
+                                    amount: s.amount,
+                                    payerId: s.from,
+                                    splitWith: [s.to],
+                                    type: 'payment',
+                                    status: 'pending'
+                                }),
+                            });
+                            if (res.ok) {
+                                fetchTripData();
+                            }
+                        } catch (e) {
+                            Alert.alert('Error', 'Failed to record payment');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleConfirmPayment = (s, isConfirmed) => {
+        const fromMember = members.find(m => String(m._id || m.id) === String(s.from));
+        const fromName = fromMember?.name || 'them';
+        
+        // Find the pending payment expense
+        const paymentExp = expenses.find(e => e.type === 'payment' && e.status === 'pending' && String(e.payerId) === String(s.from) && String(e.splitWith[0]) === String(s.to));
+        if (!paymentExp) return;
+
+        if (isConfirmed) {
+            Alert.alert(
+                'Confirm Receipt',
+                `Did you receive ₹${s.amount.toFixed(2)} from ${fromName}?`,
+                [
+                    { text: 'No', style: 'cancel' },
+                    {
+                        text: 'Yes',
+                        onPress: async () => {
+                            try {
+                                const res = await fetchWithAuth(`${API_URL}/expenses/${paymentExp._id || paymentExp.id}`, {
+                                    method: 'PUT',
+                                    body: JSON.stringify({ status: 'confirmed' }),
+                                });
+                                if (res.ok) fetchTripData();
+                            } catch (e) {
+                                Alert.alert('Error', 'Failed to confirm payment');
+                            }
+                        }
+                    }
+                ]
+            );
+        } else {
+            // Reject payment
+            Alert.alert(
+                'Reject Payment',
+                `Are you sure you didn't receive ₹${s.amount.toFixed(2)} from ${fromName}?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Reject',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                const res = await fetchWithAuth(`${API_URL}/expenses/${paymentExp._id || paymentExp.id}`, {
+                                    method: 'PUT',
+                                    body: JSON.stringify({ status: 'rejected' }),
+                                });
+                                if (res.ok) fetchTripData();
+                            } catch (e) {
+                                Alert.alert('Error', 'Failed to reject payment');
+                            }
+                        }
+                    }
+                ]
+            );
+        }
+    };
 
     return (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -581,7 +757,7 @@ export default function TripDetailScreen({ route, navigation }) {
                                 <Text style={styles.emptyText}>No expenses yet</Text>
                             </View>
                         ) : (
-                            expenses.map((exp, i) => {
+                            expenses.filter(e => e.type !== 'payment').map((exp, i) => {
                                 const expId = exp._id || exp.id || i;
                                 const payer = members.find(m => String(m._id || m.id) === String(exp.payerId));
                                 return (
@@ -641,31 +817,79 @@ export default function TripDetailScreen({ route, navigation }) {
                                     const fromName = String(s.from) === String(userId) ? 'You' : fromMember?.name;
                                     const toName = String(s.to) === String(userId) ? 'You' : toMember?.name;
                                     
+                                    const isSettled = s.confirmedPaid >= s.amount;
+                                    const isPending = s.pendingPaid >= s.amount && !isSettled;
+                                    const hasRejected = s.rejectedPaymentId && !isPending && !isSettled;
+
                                     return (
-                                        <View key={i} style={[styles.settlementRow, { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <Ionicons name="wallet" size={20} color={COLORS.primary} />
+                                        <View key={i} style={[styles.settlementRow, { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'column' }]}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: (isSettled || isPending) ? 0.5 : 1 }}>
+                                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Ionicons name="wallet" size={20} color={COLORS.primary} />
+                                                    </View>
+                                                    <View>
+                                                        <Text style={[{ color: COLORS.textSecondary, fontSize: 13 }, (isSettled || isPending) && { textDecorationLine: 'line-through' }]}>
+                                                            <Text style={{ color: COLORS.text, fontWeight: '700' }}>{fromName}</Text> needs to pay
+                                                        </Text>
+                                                        <Text style={[{ color: COLORS.text, fontSize: 15, fontWeight: '800', marginTop: 2 }, (isSettled || isPending) && { textDecorationLine: 'line-through' }]}>
+                                                            {toName}
+                                                        </Text>
+                                                    </View>
                                                 </View>
-                                                <View>
-                                                    <Text style={{ color: COLORS.textSecondary, fontSize: 13 }}>
-                                                        <Text style={{ color: COLORS.text, fontWeight: '700' }}>{fromName}</Text> needs to pay
+                                                <View style={{ alignItems: 'flex-end', opacity: (isSettled || isPending) ? 0.5 : 1 }}>
+                                                    <Text style={[{ color: COLORS.error, fontSize: 16, fontWeight: '800' }, (isSettled || isPending) && { textDecorationLine: 'line-through' }]}>
+                                                        ₹{s.amount.toFixed(2)}
                                                     </Text>
-                                                    <Text style={{ color: COLORS.text, fontSize: 15, fontWeight: '800', marginTop: 2 }}>
-                                                        {toName}
-                                                    </Text>
+                                                    {String(s.from) === String(userId) && !isPending && !isSettled && (
+                                                        <TouchableOpacity onPress={() => handlePayNow(s)} style={{ marginTop: 8, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Pay Now</Text>
+                                                        </TouchableOpacity>
+                                                    )}
                                                 </View>
                                             </View>
-                                            <View style={{ alignItems: 'flex-end' }}>
-                                                <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '800' }}>
-                                                    ₹{s.amount.toFixed(2)}
-                                                </Text>
-                                                {String(s.from) === String(userId) && (
-                                                    <TouchableOpacity style={{ marginTop: 8, backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
-                                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Pay Now</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
+                                            
+                                            {isPending && (
+                                                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                                                    {String(s.from) === String(userId) ? (
+                                                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
+                                                            Payment pending confirmation from {toName}...
+                                                        </Text>
+                                                    ) : String(s.to) === String(userId) ? (
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Text style={{ color: COLORS.text, fontSize: 13, flex: 1 }}>Did you receive ₹{s.amount.toFixed(2)}?</Text>
+                                                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                                <TouchableOpacity onPress={() => handleConfirmPayment(s, false)} style={{ backgroundColor: 'rgba(239,68,68,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                                                    <Text style={{ color: COLORS.error, fontSize: 12, fontWeight: 'bold' }}>No</Text>
+                                                                </TouchableOpacity>
+                                                                <TouchableOpacity onPress={() => handleConfirmPayment(s, true)} style={{ backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                                                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Yes</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        </View>
+                                                    ) : (
+                                                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
+                                                            Payment pending confirmation...
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                            )}
+                                            
+                                            {isSettled && (
+                                                <View style={{ marginTop: 8 }}>
+                                                    <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>
+                                                        ✓ Fully Settled
+                                                    </Text>
+                                                </View>
+                                            )}
+
+                                            {hasRejected && String(s.from) === String(userId) && (
+                                                <View style={{ marginTop: 12, backgroundColor: 'rgba(239,68,68,0.1)', padding: 10, borderRadius: 8 }}>
+                                                    <Text style={{ color: COLORS.error, fontSize: 12, textAlign: 'center' }}>
+                                                        {toName} said they haven't received the payment. Please verify.
+                                                    </Text>
+                                                </View>
+                                            )}
                                         </View>
                                     );
                                 })

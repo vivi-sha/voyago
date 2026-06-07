@@ -74,6 +74,8 @@ const expenseSchema = new mongoose.Schema({
     proofImageBase64: String,
     proofLocation: { latitude: Number, longitude: Number },
     proofTime: Date,
+    type: { type: String, enum: ['expense', 'payment'], default: 'expense' },
+    status: { type: String, enum: ['pending', 'confirmed', 'rejected'], default: 'confirmed' },
     date: { type: Date, default: Date.now },
 }, { toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
