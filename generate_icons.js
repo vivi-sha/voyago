@@ -3,100 +3,101 @@ const fs = require('fs');
 
 (async () => {
     try {
-        const browser = await puppeteer.launch({ headless: 'new' });
+        const fontPath = 'node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf';
+        const fontBase64 = fs.readFileSync(fontPath).toString('base64');
+        const fontDataUri = `data:font/ttf;base64,${fontBase64}`;
+
+        const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
         const page = await browser.newPage();
         
-        // 1024x1024 for icon
-        await page.setViewport({ width: 1024, height: 1024 });
+        const css = `
+        @font-face {
+            font-family: 'Ionicons';
+            src: url("${fontDataUri}") format('truetype');
+        }
+        body { margin: 0; padding: 0; background-color: #111827; display: flex; justify-content: center; align-items: center; position: relative; font-family: 'Ionicons'; }
+        .pin { color: #10B981; font-size: 800px; position: absolute; }
+        .leaf { color: #111827; font-size: 320px; position: absolute; top: 310px; z-index: 2; }
+        `;
 
-        // HTML with dark background and a perfectly centered green location pin
-        // No text, as requested for the app cover
-        const html = `
+        const iconHtml = `
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    width: 1024px;
-                    height: 1024px;
-                    background-color: #111827; /* Dark blue/slate */
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                }
-                .icon {
-                    width: 500px;
-                    height: 500px;
-                    color: #10B981; /* Green */
-                }
+                ${css}
+                body { width: 1024px; height: 1024px; }
             </style>
         </head>
         <body>
-            <svg class="icon" viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <!-- A clean location pin path -->
-                <path d="M256 0C161.73 0 85.33 76.4 85.33 170.67c0 118.66 160.91 332.61 164.71 337.58a7.86 7.86 0 0 0 11.92 0c3.8-4.97 164.71-218.92 164.71-337.58C426.67 76.4 350.27 0 256 0zm0 256A85.33 85.33 0 1 1 341.33 170.67 85.43 85.43 0 0 1 256 256z"/>
-            </svg>
+            <div class="pin">&#xf3c4;</div>
+            <div class="leaf">&#xf3b2;</div>
         </body>
         </html>
         `;
 
-        await page.setContent(html);
+        await page.setViewport({ width: 1024, height: 1024 });
+        await page.setContent(iconHtml, { waitUntil: 'load' });
+        await page.evaluateHandle('document.fonts.ready');
+        await page.screenshot({ path: 'assets/icon.png' });
         
-        // Screenshot exact viewport
-        await page.screenshot({ path: 'C:\\Users\\panch\\voyago\\assets\\icon.png', clip: { x: 0, y: 0, width: 1024, height: 1024 } });
-        
-        // Adaptive icon foreground needs transparent background and smaller icon
+        // Splash screen (1284x2778)
+        const splashHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                ${css}
+                body { width: 1284px; height: 2778px; flex-direction: column; }
+                .pin { font-size: 500px; position: relative; z-index: 1;}
+                .leaf { font-size: 190px; position: absolute; margin-top: -240px; z-index: 2;}
+                .text { margin-top: 40px; display: flex; font-family: sans-serif; }
+                .vo { color: #10B981; font-size: 120px; font-weight: 800; letter-spacing: -2px; }
+                .yago { color: #FFFFFF; font-size: 120px; font-weight: 800; letter-spacing: -2px; }
+                .tagline { color: #94A3B8; font-size: 40px; font-weight: 600; margin-top: 20px; font-family: sans-serif; }
+            </style>
+        </head>
+        <body>
+            <div>
+                <div class="pin">&#xf3c4;</div>
+                <div class="leaf">&#xf3b2;</div>
+            </div>
+            <div class="text">
+                <span class="vo">vo</span><span class="yago">yago</span>
+            </div>
+            <div class="tagline">share the journey</div>
+        </body>
+        </html>
+        `;
+        await page.setViewport({ width: 1284, height: 2778 });
+        await page.setContent(splashHtml, { waitUntil: 'load' });
+        await page.evaluateHandle('document.fonts.ready');
+        await page.screenshot({ path: 'assets/splash.png' });
+
+        // Adaptive Icon Foreground
         const adaptiveHtml = `
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    width: 1024px;
-                    height: 1024px;
-                    background-color: transparent;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                }
-                .icon {
-                    width: 650px;
-                    height: 650px;
-                    color: #10B981; /* Green */
-                }
+                ${css}
+                body { width: 1024px; height: 1024px; background-color: transparent; }
+                .pin { font-size: 650px; }
+                .leaf { color: transparent; font-size: 260px; top: 340px; -webkit-text-stroke: 8px #10B981; } 
             </style>
         </head>
         <body>
-            <svg class="icon" viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M256 0C161.73 0 85.33 76.4 85.33 170.67c0 118.66 160.91 332.61 164.71 337.58a7.86 7.86 0 0 0 11.92 0c3.8-4.97 164.71-218.92 164.71-337.58C426.67 76.4 350.27 0 256 0zm0 256A85.33 85.33 0 1 1 341.33 170.67 85.43 85.43 0 0 1 256 256z"/>
-            </svg>
+            <div class="pin">&#xf3c4;</div>
+            <div class="leaf">&#xf3b2;</div>
         </body>
         </html>
         `;
-        
-        await page.setContent(adaptiveHtml);
-        await page.screenshot({ path: 'C:\\Users\\panch\\voyago\\assets\\android-icon-foreground.png', omitBackground: true, clip: { x: 0, y: 0, width: 1024, height: 1024 } });
+        await page.setViewport({ width: 1024, height: 1024 });
+        await page.setContent(adaptiveHtml, { waitUntil: 'load' });
+        await page.evaluateHandle('document.fonts.ready');
+        await page.screenshot({ path: 'assets/android-icon-foreground.png', omitBackground: true });
 
-        // Adaptive icon background
-        const bgHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body { margin: 0; padding: 0; width: 1024px; height: 1024px; background-color: #111827; }
-            </style>
-        </head>
-        <body></body>
-        </html>
-        `;
-        await page.setContent(bgHtml);
-        await page.screenshot({ path: 'C:\\Users\\panch\\voyago\\assets\\android-icon-background.png', clip: { x: 0, y: 0, width: 1024, height: 1024 } });
-
-        console.log('Saved properly centered icon screenshots!');
+        console.log('Saved icons and splash screen using local fonts base64!');
         await browser.close();
     } catch (e) {
         console.error(e);

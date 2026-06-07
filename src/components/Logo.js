@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { COLORS } from '../constants/theme';
 
 export default function Logo({ size = 'large' }) {
@@ -10,7 +10,14 @@ export default function Logo({ size = 'large' }) {
     return (
         <View style={[styles.container, { transform: [{ scale }] }]}>
             <View style={styles.iconContainer}>
-                <Ionicons name="location" size={72} color={COLORS.primary || '#10B981'} />
+                <Svg width={scale * 72} height={scale * 72} viewBox="0 0 1024 1024">
+                    <Path
+                        fill="#10B981"
+                        d="M 512 850 C 300 500, 250 400, 250 350 A 262 262 0 1 1 774 350 C 724 500, 774 400, 512 850 Z
+                           M 480 500 C 400 400, 430 280, 550 220 C 500 280, 600 400, 480 500 Z"
+                        fillRule="evenodd"
+                    />
+                </Svg>
             </View>
             
             <View style={styles.textContainer}>

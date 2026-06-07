@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     TextInput, Alert, ActivityIndicator, Modal, Share, Image,
-    KeyboardAvoidingView, Platform
+    KeyboardAvoidingView, Platform, Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseReceipt } from '../utils/receiptParser';
 import EcoMap from '../components/EcoMap';
 import { triggerSuccess, playEcoChime, triggerLight } from '../utils/feedback';
-import * as Linking from 'expo-linking';
 import ItineraryView from '../components/ItineraryView';
 
 export default function TripDetailScreen({ route, navigation }) {
